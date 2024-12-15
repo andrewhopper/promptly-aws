@@ -127,9 +127,9 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <div className="p-4 bg-white shadow-sm">
-        <h1 className="text-xl font-semibold text-gray-800">Chat with AI Agent</h1>
+    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900">
+      <div className="p-4 bg-white dark:bg-gray-800 shadow-sm">
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-200">AWS Modules Chat</h1>
       </div>
 
       <div className="flex-grow overflow-auto p-4">
@@ -147,7 +147,7 @@ export default function Chat() {
         )}
       </div>
 
-      <div className="p-4 bg-white border-t">
+      <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
         <div className="flex gap-2">
           <div className="flex-grow">
             <input
@@ -162,7 +162,7 @@ export default function Chat() {
                 }
               }}
               disabled={isLoading}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"
             />
           </div>
           <button
@@ -170,8 +170,8 @@ export default function Chat() {
             disabled={isLoading || !inputText.trim()}
             className={`px-6 py-2 rounded-lg font-medium ${
               isLoading || !inputText.trim()
-                ? 'bg-gray-300 text-gray-500'
-                : 'bg-blue-500 text-white hover:bg-blue-600'
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                : 'bg-blue-500 text-white hover:bg-blue-600 dark:hover:bg-blue-700'
             }`}
           >
             {isLoading ? 'Sending...' : 'Send'}
