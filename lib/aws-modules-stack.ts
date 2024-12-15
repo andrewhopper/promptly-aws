@@ -10,6 +10,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as sfnTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import * as chime from 'aws-cdk-lib/aws-chime';
 import { Construct } from 'constructs';
 import { Duration } from 'aws-cdk-lib';
 
@@ -189,7 +190,69 @@ export class AwsModulesStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
       },
+      environment: {
+        REGION: this.region,
+        VOCODE_API_KEY: process.env.VOCODE_API_KEY || 'your-vocode-api-key'
+      },
+      timeout: Duration.seconds(30),
+      memorySize: 256,
     });
+
+    // Create Voice Connector for PSTN calls
+    const voiceConnector = new cdk.CfnResource(this, 'CheckInVoiceConnector', {
+      type: 'AWS::Chime::VoiceConnector',
+      properties: {
+        name: 'CheckInVoiceConnector',
+        region: this.region,
+        termination: {
+          callingRegions: ['US'],
+          cidrAllowedList: ['0.0.0.0/0']
+        }
+      }
+    });
+
+    // Create phone number order for the voice connector
+    const phoneNumberOrder = new cdk.CfnResource(this, 'CheckInPhoneNumberOrder', {
+      type: 'AWS::Chime::PhoneNumberOrder',
+      properties: {
+        productType: 'VoiceConnector',
+        phoneNumberType: 'Local',
+        phoneAreaCode: '202', // Washington DC area code
+        maxResults: 1
+      }
+    });
+
+    // Associate phone number with voice connector
+    const phoneNumberAssociation = new cdk.CfnResource(this, 'CheckInPhoneNumberAssociation', {
+      type: 'AWS::Chime::PhoneNumberAssociation',
+      properties: {
+        voiceConnectorId: voiceConnector.ref,
+        e164PhoneNumber: cdk.Fn.getAtt(phoneNumberOrder.logicalId, 'PhoneNumber')
+      }
+    });
+
+    // Create SIP Media Application for voice calls
+    const sipMediaApp = new cdk.CfnResource(this, 'CheckInSipMediaApp', {
+      type: 'AWS::Chime::SipMediaApplication',
+      properties: {
+        name: 'CheckInVoiceApp',
+        awsRegion: this.region,
+        endpoints: [{
+          lambdaArn: chimeLambda.functionArn
+        }]
+      }
+    });
+
+    // Update Lambda environment with Chime resources
+    chimeLambda.addEnvironment('SIP_MEDIA_APP_ID', sipMediaApp.ref);
+    chimeLambda.addEnvironment('VOICE_CONNECTOR_ID', voiceConnector.ref);
+    chimeLambda.addEnvironment('FROM_PHONE_NUMBER', cdk.Token.asString(cdk.Fn.getAtt(phoneNumberOrder.logicalId, 'PhoneNumber')));
+
+    // Add dependencies to ensure proper creation order
+    sipMediaApp.node.addDependency(chimeLambda);
+    voiceConnector.node.addDependency(sipMediaApp);
+    phoneNumberOrder.node.addDependency(voiceConnector);
+    phoneNumberAssociation.node.addDependency(phoneNumberOrder);
 
     // Add Chime SDK Voice permissions
     chimeLambda.addToRolePolicy(new iam.PolicyStatement({
@@ -201,8 +264,30 @@ export class AwsModulesStack extends cdk.Stack {
         'chime:CreateSipRule',
         'chime:DeleteSipRule',
         'chime:UpdateSipRule',
+        'chime:CreateSipMediaApplicationCall',
+        'chime:DeleteSipMediaApplicationCall',
+        'chime:GetSipMediaApplicationCall',
+        'chime:UpdateSipMediaApplicationCall',
+        'chime:CreateVoiceConnector',
+        'chime:DeleteVoiceConnector',
+        'chime:GetVoiceConnector',
+        'chime:UpdateVoiceConnector',
+        'chime:AssociatePhoneNumbersWithVoiceConnector',
+        'chime:DisassociatePhoneNumbersFromVoiceConnector',
+        'chime:ListPhoneNumbersForVoiceConnector'
       ],
       resources: ['*'],
+    }));
+
+    // Grant Polly and Transcribe permissions
+    chimeLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'polly:SynthesizeSpeech',
+        'transcribe:StartStreamTranscription',
+        'transcribe:StartStreamTranscriptionWebSocket'
+      ],
+      resources: ['*']
     }));
 
     // Create VPC for RDS
