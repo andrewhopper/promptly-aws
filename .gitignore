@@ -1,10 +1,26 @@
+# JavaScript files
 *.js
 !jest.config.js
 !frontend/next.config.js
 !frontend/**/*.js
+!frontend/src/**/*.js
 *.d.ts
+
+# Dependencies
 node_modules
+**/node_modules
+
+# Build outputs
+.next/
+*/.next/
+dist/
+*/dist/
+build/
+*/build/
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Environment files
+.env*.local
