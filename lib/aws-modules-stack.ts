@@ -218,5 +218,40 @@ export class AwsModulesStack extends cdk.Stack {
       ],
       resources: ['*'], // Will be updated with specific table ARN
     }));
+
+    // Voice Check-in Lambda
+    const voiceCheckInLambda = new nodejs.NodejsFunction(this, 'VoiceCheckInFunction', {
+      entry: 'src/lambdas/voice-check-in/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        BEDROCK_AGENT_ID: process.env.BEDROCK_AGENT_ID || '',
+        BEDROCK_AGENT_ALIAS_ID: process.env.BEDROCK_AGENT_ALIAS_ID || '',
+        SIP_MEDIA_APP_ID: process.env.SIP_MEDIA_APP_ID || '',
+        DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
+        CONTENT_GENERATOR_FUNCTION_NAME: contentGeneratorLambda.functionName
+      },
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+    });
+
+    // Add permissions for voice check-in Lambda
+    voiceCheckInLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'chime:CreateSipMediaApplicationCall',
+        'chime:StartSipMediaApplicationCall',
+        'chime:UpdateSipMediaApplicationCall',
+        'transcribe:StartStreamTranscription',
+        'bedrock:InvokeAgent',
+        'polly:SynthesizeSpeech',
+        'dynamodb:PutItem',
+        'lambda:InvokeFunction'
+      ],
+      resources: ['*']
+    }));
   }
 }
