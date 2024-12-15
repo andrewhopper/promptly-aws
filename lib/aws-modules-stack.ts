@@ -3,6 +3,8 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as rds from 'aws-cdk-lib/aws-rds';
 import { Construct } from 'constructs';
 
 export class AwsModulesStack extends cdk.Stack {
@@ -151,5 +153,63 @@ export class AwsModulesStack extends cdk.Stack {
       ],
       resources: ['*'],
     }));
+
+    // Create VPC for RDS
+    const vpc = new ec2.Vpc(this, 'DevVPC', {
+      maxAzs: 2,
+      natGateways: 1,
+      subnetConfiguration: [
+        {
+          name: 'Private',
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+          cidrMask: 24,
+        },
+        {
+          name: 'Public',
+          subnetType: ec2.SubnetType.PUBLIC,
+          cidrMask: 24,
+        }
+      ],
+    });
+
+    // Create security group for RDS
+    const rdsSecurityGroup = new ec2.SecurityGroup(this, 'RDSSecurityGroup', {
+      vpc,
+      description: 'Security group for RDS PostgreSQL instance',
+      allowAllOutbound: true,
+    });
+
+    // Create RDS instance
+    const rdsInstance = new rds.DatabaseInstance(this, 'DevPostgresDB', {
+      engine: rds.DatabaseInstanceEngine.postgres({
+        version: rds.PostgresEngineVersion.VER_15,
+      }),
+      vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
+      allocatedStorage: 20,
+      maxAllocatedStorage: 100,
+      securityGroups: [rdsSecurityGroup],
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development only
+      deletionProtection: false, // For development only
+      databaseName: 'devdb',
+      credentials: rds.Credentials.fromGeneratedSecret('postgresAdmin'),
+      parameterGroup: new rds.ParameterGroup(this, 'DevPostgresParams', {
+        engine: rds.DatabaseInstanceEngine.postgres({
+          version: rds.PostgresEngineVersion.VER_15,
+        }),
+        parameters: {
+          'shared_preload_libraries': 'pg_vector',
+          'max_connections': '100',
+        },
+      }),
+    });
+
+    // Enable Performance Insights
+    const cfnDBInstance = rdsInstance.node.defaultChild as rds.CfnDBInstance;
+    cfnDBInstance.enablePerformanceInsights = true;
+    cfnDBInstance.performanceInsightsRetentionPeriod = 7; // 7 days retention
   }
 }
