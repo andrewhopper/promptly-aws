@@ -19,3 +19,19 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.rce-container-mlist {
+  background: transparent !important;
+}
+
+.message-pending {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.message-list {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
