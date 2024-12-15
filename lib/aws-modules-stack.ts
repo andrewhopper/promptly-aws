@@ -283,6 +283,11 @@ export class AwsModulesStack extends cdk.Stack {
     }));
 
     // Set up AWS IAM Identity Center infrastructure
+    const ssoInstanceArn = new cdk.CfnParameter(this, 'SSOInstanceArn', {
+      type: 'String',
+      description: 'The ARN of the AWS SSO instance',
+    });
+
     const identityStoreId = new cdk.CfnParameter(this, 'IdentityStoreId', {
       type: 'String',
       description: 'The ID of the AWS IAM Identity Center store',
@@ -391,10 +396,23 @@ export class AwsModulesStack extends cdk.Stack {
       displayName: developerGroupConfigParsed.groupName,
     });
 
-    // Create SSO Instance ARN parameter
-    const ssoInstanceArn = new cdk.CfnParameter(this, 'SSOInstanceArn', {
+    // Create user configuration parameters
+    const adminUsers = new cdk.CfnParameter(this, 'AdminUsers', {
       type: 'String',
-      description: 'The ARN of the AWS SSO instance',
+      description: 'JSON array of admin user configurations: [{"username": "string", "email": "string", "firstName": "string", "lastName": "string"}]',
+      default: '[]',
+    });
+
+    const powerUsers = new cdk.CfnParameter(this, 'PowerUsers', {
+      type: 'String',
+      description: 'JSON array of power user configurations: [{"username": "string", "email": "string", "firstName": "string", "lastName": "string"}]',
+      default: '[]',
+    });
+
+    const developerUsers = new cdk.CfnParameter(this, 'DeveloperUsers', {
+      type: 'String',
+      description: 'JSON array of developer user configurations: [{"username": "string", "email": "string", "firstName": "string", "lastName": "string"}]',
+      default: '[]',
     });
 
     // Create Permission Sets for each role
@@ -473,5 +491,39 @@ export class AwsModulesStack extends cdk.Stack {
       targetId: accountId.valueAsString,
       targetType: 'AWS_ACCOUNT',
     });
+
+    // Create and assign users to groups
+    const createUsers = (userConfigs: string, groupId: string) => {
+      const users = JSON.parse(userConfigs);
+      users.forEach((user: any, index: number) => {
+        const identityStoreUser = new identitystore.CfnUser(this, `User${index}`, {
+          identityStoreId: identityStoreId.valueAsString,
+          userName: user.username,
+          name: {
+            familyName: user.lastName,
+            givenName: user.firstName,
+          },
+          emails: [{
+            primary: true,
+            value: user.email,
+            type: 'work',
+          }],
+        });
+
+        // Create group membership
+        new identitystore.CfnGroupMembership(this, `GroupMembership${index}`, {
+          identityStoreId: identityStoreId.valueAsString,
+          groupId: groupId,
+          memberId: {
+            userId: identityStoreUser.attrUserId,
+          },
+        });
+      });
+    };
+
+    // Create users and assign them to their respective groups
+    createUsers(adminUsers.valueAsString, adminGroup.attrGroupId);
+    createUsers(powerUsers.valueAsString, powerUserGroup.attrGroupId);
+    createUsers(developerUsers.valueAsString, developerGroup.attrGroupId);
   }
 }
