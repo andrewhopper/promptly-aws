@@ -31,9 +31,9 @@ export const VoiceChat: React.FC<VoiceChatProps> = ({ onCheckIn, onAgentResponse
       });
 
       const response = await pollyClient.send(command);
-      if (response.AudioStream instanceof Uint8Array) {
+      if (response.AudioStream instanceof Blob) {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const arrayBuffer = response.AudioStream.buffer;
+        const arrayBuffer = await response.AudioStream.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
@@ -41,7 +41,7 @@ export const VoiceChat: React.FC<VoiceChatProps> = ({ onCheckIn, onAgentResponse
         source.start(0);
       }
     } catch (error) {
-      console.error('Error synthesizing speech:', error);
+      console.error('Error speaking text:', error);
     }
   }, [pollyClient]);
 
