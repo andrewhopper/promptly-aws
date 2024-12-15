@@ -7,6 +7,7 @@ export const handler = async (event: any) => {
     // Example: Create a SIP media application
     const createAppCommand = new CreateSipMediaApplicationCommand({
       Name: 'CheckInVoiceApp',
+      AwsRegion: process.env.AWS_REGION,
       Endpoints: [
         {
           LambdaArn: process.env.VOICE_HANDLER_LAMBDA_ARN,
