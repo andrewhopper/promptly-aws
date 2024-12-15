@@ -3,6 +3,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export class AwsModulesStack extends cdk.Stack {
@@ -135,6 +136,20 @@ export class AwsModulesStack extends cdk.Stack {
       resources: ['*'],
     }));
 
+    // Create Secrets Manager secret for Slack credentials
+    const slackSecret = new secretsmanager.Secret(this, 'SlackCredentials', {
+      secretName: 'slack-bot-credentials',
+      description: 'Slack bot credentials for messaging integration',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          SLACK_BOT_TOKEN: '',
+          SLACK_SIGNING_SECRET: '',
+          SLACK_APP_TOKEN: '',
+        }),
+        generateStringKey: 'password', // Required but not used
+      },
+    });
+
     // Create SQS queue for Slack messages
     const slackMessagesQueue = new sqs.Queue(this, 'SlackMessagesQueue', {
       queueName: 'slack-messages-queue',
@@ -152,7 +167,7 @@ export class AwsModulesStack extends cdk.Stack {
         sourceMap: true,
       },
       environment: {
-        SLACK_SECRETS_ARN: process.env.SLACK_SECRETS_ARN || '',
+        SLACK_SECRET_ARN: slackSecret.secretArn,
         QUEUE_URL: slackMessagesQueue.queueUrl,
       },
     });
@@ -166,7 +181,7 @@ export class AwsModulesStack extends cdk.Stack {
     // Add Secrets Manager permissions to Slack Receiver Lambda
     slackReceiverLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['secretsmanager:GetSecretValue'],
-      resources: ['*'], // Will be updated with specific secret ARN
+      resources: [slackSecret.secretArn],
     }));
   }
 }

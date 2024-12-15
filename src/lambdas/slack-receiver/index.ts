@@ -55,7 +55,7 @@ async function initializeSlackApp() {
   try {
     const secretsResponse = await secretsManager.send(
       new GetSecretValueCommand({
-        SecretId: process.env.SLACK_SECRETS_ARN,
+        SecretId: process.env.SLACK_SECRET_ARN,
       })
     );
 
