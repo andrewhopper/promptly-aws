@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageList } from 'react-chat-elements';
+import type { IMessageListProps, MessageType, IMessage } from 'react-chat-elements/dist/type';
 import 'react-chat-elements/dist/main.css';
 import { Amplify } from 'aws-amplify';
 
@@ -24,20 +25,22 @@ interface ChatMessage {
   text: string;
   date: Date;
   id: string;
-  status: 'sent' | 'received' | 'error' | 'pending';
-  forwarded: boolean;
-  replyButton: boolean;
-  removeButton: boolean;
-  retracted: boolean;
-  className: string;
+  status: 'waiting' | 'sent' | 'received' | 'read';
+  focus?: boolean;
+  forwarded?: boolean;
+  replyButton?: boolean;
+  removeButton?: boolean;
+  notch?: boolean;
+  retracted?: boolean;
+  titleColor?: string;
 }
 
-export default function Chat() {
+const Chat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const messageListRef = useRef<any>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     const chatContainer = document.querySelector('.message-list');
@@ -54,20 +57,22 @@ export default function Chat() {
     setMessages(prev => [...prev, message]);
   };
 
-  const createMessage = (text: string, position: 'left' | 'right', status: 'sent' | 'received' | 'error' | 'pending'): ChatMessage => {
+  const createMessage = (text: string, position: 'left' | 'right', status: ChatMessage['status']): ChatMessage => {
     return {
       position,
       type: 'text',
-      title: position === 'right' ? 'You' : 'Agent',
+      title: position === 'left' ? 'Bedrock Agent' : 'You',
       text,
       date: new Date(),
       id: Date.now().toString(),
       status,
+      focus: false,
       forwarded: false,
       replyButton: false,
       removeButton: false,
+      notch: true,
       retracted: false,
-      className: status === 'pending' ? 'message-pending' : '',
+      titleColor: position === 'left' ? '#4080ff' : '#40a9ff'
     };
   };
 
@@ -83,7 +88,7 @@ export default function Chat() {
     setInputText('');
 
     // Add typing indicator
-    const typingMessage = createMessage('Agent is typing...', 'left', 'pending');
+    const typingMessage = createMessage('Agent is typing...', 'left', 'waiting');
     addMessage(typingMessage);
 
     try {
@@ -102,7 +107,7 @@ export default function Chat() {
       const data = await response.json();
 
       // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.status !== 'pending'));
+      setMessages(prev => prev.filter(msg => msg.status !== 'waiting'));
 
       // Add agent response
       const agentMessage = createMessage(data.response, 'left', 'received');
@@ -112,13 +117,13 @@ export default function Chat() {
       setError('Failed to send message. Please try again.');
 
       // Remove typing indicator
-      setMessages(prev => prev.filter(msg => msg.status !== 'pending'));
+      setMessages(prev => prev.filter(msg => msg.status !== 'waiting'));
 
       // Add error message
       const errorMessage = createMessage(
         'Sorry, there was an error processing your message.',
         'left',
-        'error'
+        'received'
       );
       addMessage(errorMessage);
     } finally {
@@ -137,7 +142,22 @@ export default function Chat() {
           className="message-list"
           lockable={true}
           toBottomHeight={'100%'}
-          dataSource={messages as any}
+          dataSource={messages.map((msg): MessageType => ({
+            type: 'text',
+            position: msg.position,
+            title: msg.title,
+            text: msg.text,
+            date: msg.date.getTime(),
+            id: msg.id,
+            status: msg.status,
+            focus: msg.focus ?? false,
+            forwarded: msg.forwarded ?? false,
+            replyButton: msg.replyButton ?? false,
+            removeButton: msg.removeButton ?? false,
+            notch: msg.notch ?? true,
+            retracted: msg.retracted ?? false,
+            titleColor: msg.titleColor ?? (msg.position === 'left' ? '#4080ff' : '#40a9ff')
+          }))}
           referance={messageListRef}
         />
         {error && (
@@ -181,3 +201,5 @@ export default function Chat() {
     </div>
   );
 }
+
+export default Chat;
