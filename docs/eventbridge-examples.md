@@ -8,11 +8,17 @@ Events should follow this structure:
 
 ```json
 {
-  "source": "custom.checkin",
+  "version": "0",
+  "id": "example-event-id",
   "detail-type": "CheckInRequired",
+  "source": "custom.checkin",
+  "account": "123456789012",
+  "time": "2024-01-15T00:00:00Z",
+  "region": "us-east-1",
   "detail": {
     "userId": "user123",
-    "timestamp": 1234567890000,
+    "timestamp": 1705276800000,
+    "elapsedTime": 3600001,
     "message": "Optional custom message"
   }
 }
@@ -58,21 +64,153 @@ const publishCheckInRequired = async (userId: string, message?: string) => {
 };
 ```
 
-## Configured Targets
+## Integration Examples
 
-The following Lambda functions are configured as targets:
+### 1. Email Integration
 
-1. Email Sender (`EmailSenderFunction`)
-   - Sends email notifications for check-in events
-   - Configure recipient using `TO_EMAIL` environment variable
+```typescript
+// Email Lambda Handler (src/lambdas/email-sender/index.ts)
+import { EventBridgeEvent } from 'aws-lambda';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
-2. SMS Sender (`SmsSenderFunction`)
-   - Sends SMS notifications for check-in events
-   - Configure recipient using `TO_PHONE_NUMBER` environment variable
+interface CheckInEvent {
+  userId: string;
+  timestamp: number;
+  message?: string;
+}
 
-3. DynamoDB Writer (`DynamoWriterFunction`)
-   - Records check-in events in DynamoDB
-   - Uses table name from `TABLE_NAME` environment variable
+const ses = new SESClient({});
+
+export const handler = async (event: EventBridgeEvent<string, CheckInEvent>) => {
+  const { detail, 'detail-type': detailType } = event;
+
+  const subject = detailType === 'CheckInOverdue'
+    ? 'Check-in Overdue Alert'
+    : 'Check-in Notification';
+
+  const command = new SendEmailCommand({
+    Source: process.env.FROM_EMAIL,
+    Destination: { ToAddresses: [process.env.TO_EMAIL] },
+    Message: {
+      Subject: { Data: subject },
+      Body: {
+        Text: {
+          Data: `User ${detail.userId} ${detailType === 'CheckInOverdue' ? 'is overdue for check-in' : 'needs to check in'}`
+        }
+      }
+    }
+  });
+
+  return ses.send(command);
+};
+```
+
+### 2. SMS Integration
+
+```typescript
+// SMS Lambda Handler (src/lambdas/sms-sender/index.ts)
+import { EventBridgeEvent } from 'aws-lambda';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+
+const sns = new SNSClient({});
+
+export const handler = async (event: EventBridgeEvent<string, CheckInEvent>) => {
+  const { detail, 'detail-type': detailType } = event;
+
+  const message = detailType === 'CheckInOverdue'
+    ? `ALERT: User ${detail.userId} is overdue for check-in`
+    : `Reminder: User ${detail.userId} needs to check in`;
+
+  const command = new PublishCommand({
+    PhoneNumber: process.env.TO_PHONE_NUMBER,
+    Message: message
+  });
+
+  return sns.send(command);
+};
+```
+
+### 3. Slack Integration
+
+```typescript
+// Slack Lambda Handler (src/lambdas/slack-sender/index.ts)
+import { App } from '@slack/bolt';
+import { EventBridgeEvent } from 'aws-lambda';
+
+const app = new App({
+  token: process.env.SLACK_BOT_TOKEN,
+  signingSecret: process.env.SLACK_SIGNING_SECRET
+});
+
+export const handler = async (event: EventBridgeEvent<string, CheckInEvent>) => {
+  const { detail, 'detail-type': detailType } = event;
+
+  const message = detailType === 'CheckInOverdue'
+    ? `:warning: User ${detail.userId} is overdue for check-in`
+    : `:bell: User ${detail.userId} needs to check in`;
+
+  await app.client.chat.postMessage({
+    channel: process.env.SLACK_CHANNEL,
+    text: message,
+    blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: message
+        }
+      }
+    ]
+  });
+};
+```
+
+### 4. DynamoDB Integration
+
+```typescript
+// DynamoDB Writer Lambda Handler (src/lambdas/dynamodb-writer/index.ts)
+import { EventBridgeEvent } from 'aws-lambda';
+import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { marshall } from '@aws-sdk/util-dynamodb';
+
+const dynamo = new DynamoDBClient({});
+
+export const handler = async (event: EventBridgeEvent<string, CheckInEvent>) => {
+  const { detail } = event;
+
+  const command = new PutItemCommand({
+    TableName: process.env.TABLE_NAME,
+    Item: marshall({
+      user_id: detail.userId,
+      last_checkin_at: detail.timestamp,
+      status: event['detail-type']
+    })
+  });
+
+  return dynamo.send(command);
+};
+```
+
+### Error Handling and Retries
+
+All Lambda functions include automatic retries through EventBridge:
+- Default retry policy: 185 seconds
+- Retry count: 24 attempts
+- Exponential backoff
+
+Example retry configuration in CDK:
+```typescript
+const rule = new events.Rule(this, 'CheckInRule', {
+  eventBus,
+  eventPattern: checkInPattern,
+  targets: [
+    new targets.LambdaFunction(emailLambda, {
+      retryAttempts: 3,
+      maxEventAge: Duration.hours(2)
+    })
+  ]
+});
+```
 
 ## Testing Events
 
