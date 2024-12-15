@@ -1,5 +1,7 @@
 *.js
 !jest.config.js
+!frontend/next.config.js
+!frontend/**/*.js
 *.d.ts
 node_modules
 
