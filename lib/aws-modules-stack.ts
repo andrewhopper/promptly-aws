@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 export class AwsModulesStack extends cdk.Stack {
@@ -80,6 +81,16 @@ export class AwsModulesStack extends cdk.Stack {
     dynamoWriterLambda.addToRolePolicy(dynamoDbPolicy);
     dynamoReaderLambda.addToRolePolicy(dynamoDbPolicy);
 
+    // Create S3 bucket for generated images
+    const generatedImagesBucket = new s3.Bucket(this, 'GeneratedImagesBucket', {
+      bucketName: `${this.account}-${this.region}-generated-images`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development - change for production
+      autoDeleteObjects: true, // For development - change for production
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      versioned: true,
+    });
+
     // Bedrock Image Generator Lambda
     const bedrockLambda = new nodejs.NodejsFunction(this, 'BedrockImageGeneratorFunction', {
       entry: 'src/lambdas/bedrock-image-generator/index.ts',
@@ -89,6 +100,11 @@ export class AwsModulesStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
       },
+      environment: {
+        BUCKET_NAME: generatedImagesBucket.bucketName,
+      },
+      timeout: cdk.Duration.minutes(1),
+      memorySize: 256,
     });
 
     // Add Bedrock permissions
@@ -100,14 +116,7 @@ export class AwsModulesStack extends cdk.Stack {
     }));
 
     // Add S3 permissions for Bedrock Lambda
-    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        's3:PutObject',
-        's3:GetObject',
-        's3:DeleteObject',
-      ],
-      resources: ['*'], // Will be updated with specific bucket ARN
-    }));
+    generatedImagesBucket.grantReadWrite(bedrockLambda);
 
     // Chime SDK Voice Lambda
     const chimeLambda = new nodejs.NodejsFunction(this, 'ChimeVoiceFunction', {
