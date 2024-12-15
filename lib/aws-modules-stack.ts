@@ -2,6 +2,9 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 
 export class AwsModulesStack extends cdk.Stack {
@@ -133,5 +136,31 @@ export class AwsModulesStack extends cdk.Stack {
       ],
       resources: ['*'],
     }));
+
+    // Create DynamoDB table for user check-ins
+    const userCheckInsTable = new dynamodb.Table(this, 'UserCheckInsTable', {
+      tableName: 'user-check-ins',
+      partitionKey: {
+        name: 'user_id',
+        type: dynamodb.AttributeType.STRING, // For GUID storage
+      },
+      sortKey: {
+        name: 'last_checkin_at',
+        type: dynamodb.AttributeType.NUMBER, // For Unix timestamp
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development - change to RETAIN for production
+      timeToLiveAttribute: 'ttl', // Optional: if we want to expire old check-ins
+    });
+
+    // Add GSI for querying by last_checkin_at
+    userCheckInsTable.addGlobalSecondaryIndex({
+      indexName: 'LastCheckInIndex',
+      partitionKey: {
+        name: 'last_checkin_at',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
   }
 }
