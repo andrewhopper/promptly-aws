@@ -97,23 +97,13 @@ export class AwsModulesStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
       },
+      environment: {
+        TABLE_NAME: userCheckInsTable.tableName,
+      },
     });
 
-    // Add DynamoDB permissions for both lambdas
-    const dynamoDbPolicy = new iam.PolicyStatement({
-      actions: [
-        'dynamodb:GetItem',
-        'dynamodb:PutItem',
-        'dynamodb:UpdateItem',
-        'dynamodb:DeleteItem',
-        'dynamodb:Query',
-        'dynamodb:Scan',
-      ],
-      resources: ['*'], // Will be updated with specific table ARN
-    });
-
-    dynamoWriterLambda.addToRolePolicy(dynamoDbPolicy);
-    dynamoReaderLambda.addToRolePolicy(dynamoDbPolicy);
+    // Grant DynamoDB read permissions to the Lambda
+    userCheckInsTable.grantReadData(dynamoReaderLambda);
 
     // Bedrock Image Generator Lambda
     const bedrockLambda = new nodejs.NodejsFunction(this, 'BedrockImageGeneratorFunction', {
