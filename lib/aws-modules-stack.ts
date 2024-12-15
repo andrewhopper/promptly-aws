@@ -3,7 +3,10 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as identitystore from 'aws-cdk-lib/aws-identitystore';
+import * as sso from 'aws-cdk-lib/aws-sso';
 import { Construct } from 'constructs';
+import { Token } from 'aws-cdk-lib';
 
 export class AwsModulesStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -278,5 +281,197 @@ export class AwsModulesStack extends cdk.Stack {
       ],
       resources: ['*']
     }));
+
+    // Set up AWS IAM Identity Center infrastructure
+    const identityStoreId = new cdk.CfnParameter(this, 'IdentityStoreId', {
+      type: 'String',
+      description: 'The ID of the AWS IAM Identity Center store',
+    });
+
+    // Create base roles that will be assigned to groups
+    const adminRole = new iam.Role(this, 'AdminRole', {
+      assumedBy: new iam.ServicePrincipal('identitystore.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess')
+      ],
+      description: 'Admin role for Identity Center groups',
+    });
+
+    const powerUserRole = new iam.Role(this, 'PowerUserRole', {
+      assumedBy: new iam.ServicePrincipal('identitystore.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('PowerUserAccess')
+      ],
+      description: 'Power User role for Identity Center groups',
+    });
+
+    const developerRole = new iam.Role(this, 'DeveloperRole', {
+      assumedBy: new iam.ServicePrincipal('identitystore.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AWSCodeBuildDeveloperAccess')
+      ],
+      inlinePolicies: {
+        'DeveloperCustomPolicy': new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                's3:GetObject',
+                's3:PutObject',
+                'dynamodb:GetItem',
+                'dynamodb:PutItem',
+                'dynamodb:Query',
+                'dynamodb:Scan',
+                'lambda:InvokeFunction',
+              ],
+              resources: ['*'],
+            }),
+          ],
+        }),
+      },
+      description: 'Developer role for Identity Center groups',
+    });
+
+    // Create modifiable group configurations
+    const adminGroupConfig = new cdk.CfnParameter(this, 'AdminGroupConfig', {
+      type: 'String',
+      description: 'Configuration for Admin group (JSON format: {"groupName": "string", "description": "string"})',
+      default: JSON.stringify({
+        groupName: 'Administrators',
+        description: 'Administrative users with full access'
+      })
+    });
+
+    const powerUserGroupConfig = new cdk.CfnParameter(this, 'PowerUserGroupConfig', {
+      type: 'String',
+      description: 'Configuration for Power User group (JSON format: {"groupName": "string", "description": "string"})',
+      default: JSON.stringify({
+        groupName: 'PowerUsers',
+        description: 'Power users with elevated access'
+      })
+    });
+
+    const developerGroupConfig = new cdk.CfnParameter(this, 'DeveloperGroupConfig', {
+      type: 'String',
+      description: 'Configuration for Developer group (JSON format: {"groupName": "string", "description": "string"})',
+      default: JSON.stringify({
+        groupName: 'Developers',
+        description: 'Developers with limited access'
+      })
+    });
+
+    // Create Identity Center Groups with parsed configurations
+    const parseConfig = (config: string) => {
+      try {
+        return JSON.parse(config);
+      } catch (e) {
+        return JSON.parse(config.toString());
+      }
+    };
+
+    const adminGroupConfigParsed = parseConfig(adminGroupConfig.valueAsString);
+    const powerUserGroupConfigParsed = parseConfig(powerUserGroupConfig.valueAsString);
+    const developerGroupConfigParsed = parseConfig(developerGroupConfig.valueAsString);
+
+    const adminGroup = new identitystore.CfnGroup(this, 'AdminGroup', {
+      identityStoreId: identityStoreId.valueAsString,
+      description: adminGroupConfigParsed.description,
+      displayName: adminGroupConfigParsed.groupName,
+    });
+
+    const powerUserGroup = new identitystore.CfnGroup(this, 'PowerUserGroup', {
+      identityStoreId: identityStoreId.valueAsString,
+      description: powerUserGroupConfigParsed.description,
+      displayName: powerUserGroupConfigParsed.groupName,
+    });
+
+    const developerGroup = new identitystore.CfnGroup(this, 'DeveloperGroup', {
+      identityStoreId: identityStoreId.valueAsString,
+      description: developerGroupConfigParsed.description,
+      displayName: developerGroupConfigParsed.groupName,
+    });
+
+    // Create SSO Instance ARN parameter
+    const ssoInstanceArn = new cdk.CfnParameter(this, 'SSOInstanceArn', {
+      type: 'String',
+      description: 'The ARN of the AWS SSO instance',
+    });
+
+    // Create Permission Sets for each role
+    const adminPermissionSet = new sso.CfnPermissionSet(this, 'AdminPermissionSet', {
+      instanceArn: ssoInstanceArn.valueAsString,
+      name: 'AdminPermissionSet',
+      description: 'Permission set for administrators',
+      sessionDuration: 'PT8H',
+      managedPolicies: ['arn:aws:iam::aws:policy/AdministratorAccess'],
+    });
+
+    const powerUserPermissionSet = new sso.CfnPermissionSet(this, 'PowerUserPermissionSet', {
+      instanceArn: ssoInstanceArn.valueAsString,
+      name: 'PowerUserPermissionSet',
+      description: 'Permission set for power users',
+      sessionDuration: 'PT8H',
+      managedPolicies: ['arn:aws:iam::aws:policy/PowerUserAccess'],
+    });
+
+    const developerPermissionSet = new sso.CfnPermissionSet(this, 'DeveloperPermissionSet', {
+      instanceArn: ssoInstanceArn.valueAsString,
+      name: 'DeveloperPermissionSet',
+      description: 'Permission set for developers',
+      sessionDuration: 'PT8H',
+      managedPolicies: ['arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess'],
+      inlinePolicy: JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Effect: 'Allow',
+            Action: [
+              's3:GetObject',
+              's3:PutObject',
+              'dynamodb:GetItem',
+              'dynamodb:PutItem',
+              'dynamodb:Query',
+              'dynamodb:Scan',
+              'lambda:InvokeFunction',
+            ],
+            Resource: '*',
+          },
+        ],
+      }),
+    });
+
+    // Create Assignment Parameters for each group
+    const accountId = new cdk.CfnParameter(this, 'AccountId', {
+      type: 'String',
+      description: 'The AWS account ID where the assignments will be made',
+    });
+
+    // Create assignments between groups and permission sets
+    new sso.CfnAssignment(this, 'AdminAssignment', {
+      instanceArn: ssoInstanceArn.valueAsString,
+      permissionSetArn: adminPermissionSet.attrPermissionSetArn,
+      principalId: adminGroup.attrGroupId,
+      principalType: 'GROUP',
+      targetId: accountId.valueAsString,
+      targetType: 'AWS_ACCOUNT',
+    });
+
+    new sso.CfnAssignment(this, 'PowerUserAssignment', {
+      instanceArn: ssoInstanceArn.valueAsString,
+      permissionSetArn: powerUserPermissionSet.attrPermissionSetArn,
+      principalId: powerUserGroup.attrGroupId,
+      principalType: 'GROUP',
+      targetId: accountId.valueAsString,
+      targetType: 'AWS_ACCOUNT',
+    });
+
+    new sso.CfnAssignment(this, 'DeveloperAssignment', {
+      instanceArn: ssoInstanceArn.valueAsString,
+      permissionSetArn: developerPermissionSet.attrPermissionSetArn,
+      principalId: developerGroup.attrGroupId,
+      principalType: 'GROUP',
+      targetId: accountId.valueAsString,
+      targetType: 'AWS_ACCOUNT',
+    });
   }
 }
