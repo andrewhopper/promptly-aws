@@ -5,6 +5,7 @@ import { MessageList } from 'react-chat-elements';
 import type { IMessageListProps, MessageType, IMessage } from 'react-chat-elements/dist/type';
 import 'react-chat-elements/dist/main.css';
 import { Amplify } from 'aws-amplify';
+import { VoiceChat } from './VoiceChat';
 
 // Configure Amplify
 Amplify.configure({
@@ -41,6 +42,7 @@ const Chat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const [speakText, setSpeakText] = useState<((text: string) => Promise<void>) | null>(null);
 
   const scrollToBottom = () => {
     const chatContainer = document.querySelector('.message-list');
@@ -76,14 +78,14 @@ const Chat: React.FC = () => {
     };
   };
 
-  const sendMessage = async () => {
-    if (!inputText.trim() || isLoading) return;
+  const sendMessage = async (message: string) => {
+    if (!message.trim() || isLoading) return;
 
     setIsLoading(true);
     setError(null);
 
     // Add user message
-    const userMessage = createMessage(inputText, 'right', 'sent');
+    const userMessage = createMessage(message, 'right', 'sent');
     addMessage(userMessage);
     setInputText('');
 
@@ -97,7 +99,7 @@ const Chat: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: inputText }),
+        body: JSON.stringify({ message }),
       });
 
       if (!response.ok) {
@@ -112,6 +114,11 @@ const Chat: React.FC = () => {
       // Add agent response
       const agentMessage = createMessage(data.response, 'left', 'received');
       addMessage(agentMessage);
+
+      // Speak the response if speech synthesis is available
+      if (speakText) {
+        await speakText(data.response);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message. Please try again.');
@@ -167,6 +174,13 @@ const Chat: React.FC = () => {
         )}
       </div>
 
+      <VoiceChat
+        onCheckIn={async (message) => {
+          await sendMessage(message);
+        }}
+        onAgentResponse={(speak) => setSpeakText(() => speak)}
+      />
+
       <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
         <div className="flex gap-2">
           <div className="flex-grow">
@@ -178,7 +192,7 @@ const Chat: React.FC = () => {
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  sendMessage();
+                  sendMessage(inputText);
                 }
               }}
               disabled={isLoading}
@@ -186,7 +200,7 @@ const Chat: React.FC = () => {
             />
           </div>
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage(inputText)}
             disabled={isLoading || !inputText.trim()}
             className={`px-6 py-2 rounded-lg font-medium ${
               isLoading || !inputText.trim()
