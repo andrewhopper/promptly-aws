@@ -45,6 +45,32 @@ export class AwsModulesStack extends cdk.Stack {
       resources: ['*'],
     }));
 
+    // Create DynamoDB table for user check-ins
+    const userCheckInsTable = new dynamodb.Table(this, 'UserCheckInsTable', {
+      tableName: 'user-check-ins',
+      partitionKey: {
+        name: 'user_id',
+        type: dynamodb.AttributeType.STRING, // For GUID storage
+      },
+      sortKey: {
+        name: 'last_checkin_at',
+        type: dynamodb.AttributeType.NUMBER, // For Unix timestamp
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development - change to RETAIN for production
+      timeToLiveAttribute: 'ttl', // Optional: if we want to expire old check-ins
+    });
+
+    // Add GSI for querying by last_checkin_at
+    userCheckInsTable.addGlobalSecondaryIndex({
+      indexName: 'LastCheckInIndex',
+      partitionKey: {
+        name: 'last_checkin_at',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // DynamoDB Writer Lambda
     const dynamoWriterLambda = new nodejs.NodejsFunction(this, 'DynamoWriterFunction', {
       entry: 'src/lambdas/dynamodb-writer/index.ts',
@@ -54,7 +80,13 @@ export class AwsModulesStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
       },
+      environment: {
+        TABLE_NAME: userCheckInsTable.tableName,
+      },
     });
+
+    // Grant DynamoDB write permissions to the Lambda
+    userCheckInsTable.grantWriteData(dynamoWriterLambda);
 
     // DynamoDB Reader Lambda
     const dynamoReaderLambda = new nodejs.NodejsFunction(this, 'DynamoReaderFunction', {
@@ -136,31 +168,5 @@ export class AwsModulesStack extends cdk.Stack {
       ],
       resources: ['*'],
     }));
-
-    // Create DynamoDB table for user check-ins
-    const userCheckInsTable = new dynamodb.Table(this, 'UserCheckInsTable', {
-      tableName: 'user-check-ins',
-      partitionKey: {
-        name: 'user_id',
-        type: dynamodb.AttributeType.STRING, // For GUID storage
-      },
-      sortKey: {
-        name: 'last_checkin_at',
-        type: dynamodb.AttributeType.NUMBER, // For Unix timestamp
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development - change to RETAIN for production
-      timeToLiveAttribute: 'ttl', // Optional: if we want to expire old check-ins
-    });
-
-    // Add GSI for querying by last_checkin_at
-    userCheckInsTable.addGlobalSecondaryIndex({
-      indexName: 'LastCheckInIndex',
-      partitionKey: {
-        name: 'last_checkin_at',
-        type: dynamodb.AttributeType.NUMBER,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
   }
 }
