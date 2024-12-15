@@ -54,6 +54,30 @@ export class AwsModulesStack extends cdk.Stack {
       resources: ['*'],
     }));
 
+    // Slack Lambda functions
+    const slackSenderLambda = new nodejs.NodejsFunction(this, 'SlackSenderFunction', {
+      entry: 'src/lambdas/slack-sender/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      environment: {
+        SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN || 'your-bot-token',
+        SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET || 'your-signing-secret',
+        SLACK_CHANNEL: 'check-ins'
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+    });
+
+    // Add Slack API permissions
+    slackSenderLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'secretsmanager:GetSecretValue'
+      ],
+      resources: ['*']
+    }));
+
     // DynamoDB Writer Lambda
     const dynamoWriterLambda = new nodejs.NodejsFunction(this, 'DynamoWriterFunction', {
       entry: 'src/lambdas/dynamodb-writer/index.ts',
@@ -325,6 +349,7 @@ export class AwsModulesStack extends cdk.Stack {
     checkInRule.addTarget(new targets.LambdaFunction(emailLambda));
     checkInRule.addTarget(new targets.LambdaFunction(smsLambda));
     checkInRule.addTarget(new targets.LambdaFunction(dynamoWriterLambda));
+    checkInRule.addTarget(new targets.LambdaFunction(slackSenderLambda));
 
     // Grant permissions to Lambda functions to be triggered by EventBridge
     emailLambda.addPermission('EventBridgeInvoke', {
@@ -338,6 +363,11 @@ export class AwsModulesStack extends cdk.Stack {
     });
 
     dynamoWriterLambda.addPermission('EventBridgeInvoke', {
+      principal: new iam.ServicePrincipal('events.amazonaws.com'),
+      sourceArn: checkInRule.ruleArn
+    });
+
+    slackSenderLambda.addPermission('EventBridgeInvoke', {
       principal: new iam.ServicePrincipal('events.amazonaws.com'),
       sourceArn: checkInRule.ruleArn
     });
