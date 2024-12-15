@@ -5,6 +5,8 @@ import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 
 export class AwsModulesStack extends cdk.Stack {
@@ -16,6 +18,10 @@ export class AwsModulesStack extends cdk.Stack {
       entry: 'src/lambdas/email-sender/index.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
+      environment: {
+        FROM_EMAIL: 'noreply@example.com', // Update with actual email
+        TO_EMAIL: 'default@example.com', // Update with actual email
+      },
       bundling: {
         minify: true,
         sourceMap: true,
@@ -33,6 +39,9 @@ export class AwsModulesStack extends cdk.Stack {
       entry: 'src/lambdas/sms-sender/index.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
+      environment: {
+        TO_PHONE_NUMBER: '+1234567890', // Update with actual phone number
+      },
       bundling: {
         minify: true,
         sourceMap: true,
@@ -284,6 +293,59 @@ export class AwsModulesStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'BastionKeyPairName', {
       value: bastionKeyPair.keyName,
       description: 'Name of the key pair for SSH access to bastion host',
+    });
+
+    // EventBridge Event Bus
+    const checkInEventBus = new events.EventBus(this, 'CheckInEventBus', {
+      eventBusName: 'user-check-in-bus'
+    });
+
+    // Grant permissions to publish events
+    const eventBusPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['events:PutEvents'],
+      resources: [checkInEventBus.eventBusArn]
+    });
+
+    // Event pattern for check-in monitoring
+    const checkInPattern = {
+      source: ['custom.checkin'],
+      detailType: ['CheckInRequired', 'CheckInReceived']
+    };
+
+    // Rule for check-in notifications
+    const checkInRule = new events.Rule(this, 'CheckInNotificationRule', {
+      eventBus: checkInEventBus,
+      eventPattern: checkInPattern,
+      ruleName: 'check-in-notification-rule',
+      description: 'Triggers notifications when check-in is required or received'
+    });
+
+    // Add EventBridge targets
+    checkInRule.addTarget(new targets.LambdaFunction(emailLambda));
+    checkInRule.addTarget(new targets.LambdaFunction(smsLambda));
+    checkInRule.addTarget(new targets.LambdaFunction(dynamoWriterLambda));
+
+    // Grant permissions to Lambda functions to be triggered by EventBridge
+    emailLambda.addPermission('EventBridgeInvoke', {
+      principal: new iam.ServicePrincipal('events.amazonaws.com'),
+      sourceArn: checkInRule.ruleArn
+    });
+
+    smsLambda.addPermission('EventBridgeInvoke', {
+      principal: new iam.ServicePrincipal('events.amazonaws.com'),
+      sourceArn: checkInRule.ruleArn
+    });
+
+    dynamoWriterLambda.addPermission('EventBridgeInvoke', {
+      principal: new iam.ServicePrincipal('events.amazonaws.com'),
+      sourceArn: checkInRule.ruleArn
+    });
+
+    // Output EventBus ARN for reference
+    new cdk.CfnOutput(this, 'EventBusArn', {
+      value: checkInEventBus.eventBusArn,
+      description: 'ARN of the Check-in Event Bus'
     });
   }
 }
