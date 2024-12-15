@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 export class AwsModulesStack extends cdk.Stack {
@@ -132,6 +133,40 @@ export class AwsModulesStack extends cdk.Stack {
         'chime:UpdateSipRule',
       ],
       resources: ['*'],
+    }));
+
+    // Create SQS queue for Slack messages
+    const slackMessagesQueue = new sqs.Queue(this, 'SlackMessagesQueue', {
+      queueName: 'slack-messages-queue',
+      visibilityTimeout: cdk.Duration.seconds(30),
+      retentionPeriod: cdk.Duration.days(14),
+    });
+
+    // Slack Receiver Lambda
+    const slackReceiverLambda = new nodejs.NodejsFunction(this, 'SlackReceiverFunction', {
+      entry: 'src/lambdas/slack-receiver/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        SLACK_SECRETS_ARN: process.env.SLACK_SECRETS_ARN || '',
+        QUEUE_URL: slackMessagesQueue.queueUrl,
+      },
+    });
+
+    // Add SQS permissions to Slack Receiver Lambda
+    slackReceiverLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sqs:SendMessage'],
+      resources: [slackMessagesQueue.queueArn],
+    }));
+
+    // Add Secrets Manager permissions to Slack Receiver Lambda
+    slackReceiverLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: ['*'], // Will be updated with specific secret ARN
     }));
   }
 }

@@ -1,6 +1,7 @@
 import { Handler } from 'aws-lambda';
 import { App, LogLevel } from '@slack/bolt';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 interface SlackEvent {
   type: string;
@@ -45,6 +46,7 @@ interface SlackError extends Error {
 }
 
 const secretsManager = new SecretsManagerClient({});
+const sqs = new SQSClient({});
 let slackApp: App | null = null;
 
 async function initializeSlackApp() {
@@ -111,11 +113,22 @@ export const handler: Handler = async (event: SlackEvent) => {
     if (event.event.type === 'message') {
       const processedMessage = processSlackEvent(event);
 
-      // Return processed message for SQS queue integration
+      // Send message to SQS queue
+      await sqs.send(new SendMessageCommand({
+        QueueUrl: process.env.QUEUE_URL,
+        MessageBody: JSON.stringify(processedMessage),
+        MessageAttributes: {
+          eventType: {
+            DataType: 'String',
+            StringValue: 'slack_message',
+          },
+        },
+      }));
+
       return {
         statusCode: 200,
         body: JSON.stringify({
-          message: 'Event processed successfully',
+          message: 'Event processed and queued successfully',
           data: processedMessage,
         }),
       };
