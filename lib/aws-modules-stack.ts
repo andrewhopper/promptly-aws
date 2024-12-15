@@ -375,17 +375,26 @@ export class AwsModulesStack extends cdk.Stack {
           lastCheckIn: sfn.JsonPath.stringAt('$.checkInData.Item.last_checkin_at.S'),
           currentTime: sfn.JsonPath.stringAt('$$.State.EnteredTime')
         }),
-        resultPath: '$.elapsedTime'
+        resultPath: '$.timeCalculation',
+        resultSelector: {
+          'status.$': '$.Payload.status',
+          'elapsedTime.$': '$.Payload.elapsedTime',
+          'metadata.$': '$.Payload.metadata'
+        }
       }))
-      .next(new sfn.Choice(this, 'CheckOverdue')
-        .when(sfn.Condition.numberGreaterThan('$.elapsedTime', 3600), new sfnTasks.EventBridgePutEvents(this, 'PublishOverdueEvent', {
+      .next(new sfn.Choice(this, 'CheckTimeForCheckin')
+        .when(sfn.Condition.stringEquals('$.timeCalculation.status', 'TIME_FOR_CHECKIN'), new sfnTasks.EventBridgePutEvents(this, 'PublishCheckinEvent', {
           entries: [{
             detail: sfn.TaskInput.fromObject({
+              type: 'TIME_FOR_CHECKIN',
               userId: sfn.JsonPath.stringAt('$.userId'),
-              timestamp: sfn.JsonPath.stringAt('$$.State.EnteredTime'),
-              elapsedTime: sfn.JsonPath.stringAt('$.elapsedTime')
+              elapsedTime: sfn.JsonPath.stringAt('$.timeCalculation.elapsedTime'),
+              message: sfn.JsonPath.stringAt('$.timeCalculation.metadata.message'),
+              lastCheckIn: sfn.JsonPath.stringAt('$.timeCalculation.metadata.lastCheckInTime'),
+              currentTime: sfn.JsonPath.stringAt('$.timeCalculation.metadata.currentTime'),
+              thresholdSeconds: sfn.JsonPath.stringAt('$.timeCalculation.metadata.thresholdSeconds')
             }),
-            detailType: 'CheckInOverdue',
+            detailType: 'TimeForCheckin',
             source: 'custom.checkin',
             eventBus: checkInEventBus
           }]
@@ -413,11 +422,9 @@ export class AwsModulesStack extends cdk.Stack {
     // Event pattern for check-in monitoring
     const checkInPattern = {
       source: ['custom.checkin'],
-      detailType: ['CheckInRequired', 'CheckInReceived', 'CheckInOverdue'],
+      detailType: ['TimeForCheckin'],
       detail: {
-        elapsedTime: [{
-          numeric: ['>', 3600000] // Match when elapsed time is greater than 1 hour (3600000 ms)
-        }]
+        type: ['TIME_FOR_CHECKIN']
       }
     };
 
