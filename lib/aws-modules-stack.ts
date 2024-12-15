@@ -179,6 +179,46 @@ export class AwsModulesStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
+    // Create security group for bastion host
+    const bastionSecurityGroup = new ec2.SecurityGroup(this, 'BastionSecurityGroup', {
+      vpc,
+      description: 'Security group for bastion host',
+      allowAllOutbound: true,
+    });
+
+    // Allow SSH access to bastion from anywhere (you may want to restrict this in production)
+    bastionSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(22),
+      'Allow SSH access from anywhere'
+    );
+
+    // Allow bastion to access RDS
+    rdsSecurityGroup.addIngressRule(
+      ec2.Peer.securityGroupId(bastionSecurityGroup.securityGroupId),
+      ec2.Port.tcp(5432),
+      'Allow PostgreSQL access from bastion host'
+    );
+
+    // Create key pair for bastion host
+    const bastionKeyPair = new ec2.CfnKeyPair(this, 'BastionKeyPair', {
+      keyName: 'bastion-key-pair',
+    });
+
+    // Create bastion host
+    const bastionHost = new ec2.Instance(this, 'BastionHost', {
+      vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC,
+      },
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
+      machineImage: new ec2.AmazonLinuxImage({
+        generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
+      }),
+      securityGroup: bastionSecurityGroup,
+      keyName: bastionKeyPair.keyName,
+    });
+
     // Create RDS instance
     const rdsInstance = new rds.DatabaseInstance(this, 'DevPostgresDB', {
       engine: rds.DatabaseInstanceEngine.postgres({
@@ -211,5 +251,31 @@ export class AwsModulesStack extends cdk.Stack {
     const cfnDBInstance = rdsInstance.node.defaultChild as rds.CfnDBInstance;
     cfnDBInstance.enablePerformanceInsights = true;
     cfnDBInstance.performanceInsightsRetentionPeriod = 7; // 7 days retention
+
+    // Add outputs for connection information
+    new cdk.CfnOutput(this, 'BastionHostId', {
+      value: bastionHost.instanceId,
+      description: 'Bastion Host Instance ID',
+    });
+
+    new cdk.CfnOutput(this, 'BastionPublicDNS', {
+      value: bastionHost.instancePublicDnsName,
+      description: 'Bastion Host Public DNS',
+    });
+
+    new cdk.CfnOutput(this, 'RDSEndpoint', {
+      value: rdsInstance.instanceEndpoint.hostname,
+      description: 'RDS Instance Endpoint',
+    });
+
+    new cdk.CfnOutput(this, 'RDSPort', {
+      value: rdsInstance.instanceEndpoint.port.toString(),
+      description: 'RDS Instance Port',
+    });
+
+    new cdk.CfnOutput(this, 'BastionKeyPairName', {
+      value: bastionKeyPair.keyName,
+      description: 'Name of the key pair for SSH access to bastion host',
+    });
   }
 }
