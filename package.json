@@ -32,6 +32,11 @@
     "@aws-sdk/client-transcribe": "^3.0.0",
     "@slack/bolt": "^3.0.0",
     "uuid": "^9.0.0",
-    "vocode": "^1.0.0"
+    "vocode": "^1.0.0",
+    "react-chat-elements": "^12.0.0",
+    "aws-amplify": "^6.0.0",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
