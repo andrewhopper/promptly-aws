@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { PollyClient, SynthesizeSpeechCommand } from '@aws-sdk/client-polly';
 
 interface VoiceChatProps {
@@ -13,13 +13,13 @@ export const VoiceChat: React.FC<VoiceChatProps> = ({ onCheckIn, onAgentResponse
   const [transcript, setTranscript] = useState('');
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
 
-  const pollyClient = new PollyClient({
+  const pollyClient = useMemo(() => new PollyClient({
     region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
     credentials: {
       accessKeyId: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID || '',
       secretAccessKey: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY || ''
     }
-  });
+  }), []);
 
   const speakText = useCallback(async (text: string) => {
     try {
@@ -94,7 +94,7 @@ export const VoiceChat: React.FC<VoiceChatProps> = ({ onCheckIn, onAgentResponse
         recognition.stop();
       }
     };
-  }, [initializeSpeechRecognition]);
+  }, [initializeSpeechRecognition, recognition]);
 
   const handleToggleRecording = async () => {
     if (!recognition) {

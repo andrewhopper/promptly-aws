@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageList } from 'react-chat-elements';
-import type { IMessageListProps, MessageType, IMessage } from 'react-chat-elements/dist/type';
+import type { MessageType } from 'react-chat-elements';
 import 'react-chat-elements/dist/main.css';
 import { Amplify } from 'aws-amplify';
 import { VoiceChat } from './VoiceChat';
