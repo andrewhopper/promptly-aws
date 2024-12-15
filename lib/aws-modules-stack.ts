@@ -12,14 +12,35 @@ export class AwsModulesStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Create S3 bucket for content storage
+    // Create S3 bucket for access logs
+    const accessLogsBucket = new s3.Bucket(this, 'AccessLogsBucket', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      versioned: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.days(365), // Retain logs for 1 year
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INTELLIGENT_TIERING,
+              transitionAfter: cdk.Duration.days(90)
+            }
+          ]
+        }
+      ],
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
+    });
+
+    // Create S3 bucket for content storage with access logging enabled
     const contentBucket = new s3.Bucket(this, 'ContentBucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       versioned: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      accessControl: s3.BucketAccessControl.PRIVATE,
-      serverAccessLogsPrefix: 'access-logs/'
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      serverAccessLogsBucket: accessLogsBucket,
+      serverAccessLogsPrefix: 'content-bucket-logs/'
     });
 
     // Email Lambda
