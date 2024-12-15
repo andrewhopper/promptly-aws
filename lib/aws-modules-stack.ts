@@ -7,7 +7,11 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
+import * as sfnTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
+import { Duration } from 'aws-cdk-lib';
 
 export class AwsModulesStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -54,6 +58,14 @@ export class AwsModulesStack extends cdk.Stack {
       resources: ['*'],
     }));
 
+    // DynamoDB table for user check-ins
+    const userCheckInsTable = new dynamodb.Table(this, 'UserCheckInsTable', {
+      partitionKey: { name: 'user_id', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'last_checkin_at', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development only
+    });
+
     // Slack Lambda functions
     const slackSenderLambda = new nodejs.NodejsFunction(this, 'SlackSenderFunction', {
       entry: 'src/lambdas/slack-sender/index.ts',
@@ -87,6 +99,9 @@ export class AwsModulesStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
       },
+      environment: {
+        TABLE_NAME: userCheckInsTable.tableName,
+      },
     });
 
     // DynamoDB Reader Lambda
@@ -97,6 +112,9 @@ export class AwsModulesStack extends cdk.Stack {
       bundling: {
         minify: true,
         sourceMap: true,
+      },
+      environment: {
+        TABLE_NAME: userCheckInsTable.tableName,
       },
     });
 
@@ -110,7 +128,7 @@ export class AwsModulesStack extends cdk.Stack {
         'dynamodb:Query',
         'dynamodb:Scan',
       ],
-      resources: ['*'], // Will be updated with specific table ARN
+      resources: [userCheckInsTable.tableArn], // Updated with specific table ARN
     });
 
     dynamoWriterLambda.addToRolePolicy(dynamoDbPolicy);
@@ -129,7 +147,7 @@ export class AwsModulesStack extends cdk.Stack {
       objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
       lifecycleRules: [
         {
-          expiration: cdk.Duration.days(30), // Expire access logs after 30 days
+          expiration: Duration.days(30), // Expire access logs after 30 days
           prefix: 'access-logs/',
         }
       ],
@@ -147,7 +165,7 @@ export class AwsModulesStack extends cdk.Stack {
       environment: {
         BUCKET_NAME: generatedImagesBucket.bucketName,
       },
-      timeout: cdk.Duration.minutes(1),
+      timeout: Duration.minutes(1),
       memorySize: 256,
     });
 
@@ -329,6 +347,67 @@ export class AwsModulesStack extends cdk.Stack {
       effect: iam.Effect.ALLOW,
       actions: ['events:PutEvents'],
       resources: [checkInEventBus.eventBusArn]
+    });
+
+    // Step Function for monitoring check-ins
+    const timeCalculator = new lambda.Function(this, 'TimeCalculatorFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset('src/lambdas/time-calculator'),
+      timeout: Duration.seconds(30),
+      environment: {
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+
+    // Create Step Function
+    const checkInMonitor = new sfn.StateMachine(this, 'CheckInMonitorStateMachine', {
+      definition: sfn.Chain.start(new sfnTasks.DynamoGetItem(this, 'GetLastCheckIn', {
+        table: userCheckInsTable,
+        key: {
+          'user_id': sfnTasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$.userId'))
+        },
+        resultPath: '$.checkInData'
+      }))
+      .next(new sfnTasks.LambdaInvoke(this, 'CalculateElapsedTime', {
+        lambdaFunction: timeCalculator,
+        payload: sfn.TaskInput.fromObject({
+          lastCheckIn: sfn.JsonPath.stringAt('$.checkInData.Item.last_checkin_at.S'),
+          currentTime: sfn.JsonPath.stringAt('$$.State.EnteredTime')
+        }),
+        resultPath: '$.elapsedTime'
+      }))
+      .next(new sfn.Choice(this, 'CheckOverdue')
+        .when(sfn.Condition.numberGreaterThan('$.elapsedTime', 3600), new sfnTasks.EventBridgePutEvents(this, 'PublishOverdueEvent', {
+          entries: [{
+            detail: sfn.TaskInput.fromObject({
+              userId: sfn.JsonPath.stringAt('$.userId'),
+              timestamp: sfn.JsonPath.stringAt('$$.State.EnteredTime'),
+              elapsedTime: sfn.JsonPath.stringAt('$.elapsedTime')
+            }),
+            detailType: 'CheckInOverdue',
+            source: 'custom.checkin',
+            eventBus: checkInEventBus
+          }]
+        }))
+        .otherwise(new sfn.Succeed(this, 'Success'))),
+      timeout: Duration.minutes(5),
+      tracingEnabled: true,
+    });
+
+    // Grant permissions
+    userCheckInsTable.grantReadData(checkInMonitor);
+    timeCalculator.grantInvoke(checkInMonitor);
+    checkInEventBus.grantPutEventsTo(checkInMonitor);
+
+    // Schedule state machine execution
+    new events.Rule(this, 'CheckInMonitorSchedule', {
+      schedule: events.Schedule.rate(Duration.minutes(15)),
+      targets: [new targets.SfnStateMachine(checkInMonitor, {
+        input: events.RuleTargetInput.fromObject({
+          userId: events.EventField.fromPath('$.detail.userId')
+        })
+      })]
     });
 
     // Event pattern for check-in monitoring

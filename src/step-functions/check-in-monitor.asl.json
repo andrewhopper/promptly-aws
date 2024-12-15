@@ -1,0 +1,66 @@
+{
+  "Comment": "A state machine that monitors user check-ins and triggers notifications when overdue",
+  "StartAt": "GetLastCheckIn",
+  "States": {
+    "GetLastCheckIn": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "${UserCheckInsTable}",
+        "Key": {
+          "user_id": {
+            "S.$": "$.userId"
+          }
+        }
+      },
+      "ResultPath": "$.checkInData",
+      "Next": "CalculateElapsedTime"
+    },
+    "CalculateElapsedTime": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${TimeCalculatorFunction}",
+        "Payload": {
+          "lastCheckIn.$": "$.checkInData.Item.last_checkin_at.S",
+          "currentTime.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.elapsedTime",
+      "Next": "CheckOverdue"
+    },
+    "CheckOverdue": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.elapsedTime",
+          "NumericGreaterThan": 3600,
+          "Next": "PublishOverdueEvent"
+        }
+      ],
+      "Default": "Success"
+    },
+    "PublishOverdueEvent": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [
+          {
+            "Detail": {
+              "userId.$": "$.userId",
+              "timestamp.$": "$$.State.EnteredTime",
+              "elapsedTime.$": "$.elapsedTime"
+            },
+            "DetailType": "CheckInOverdue",
+            "Source": "custom.checkin",
+            "EventBusName": "${EventBusName}"
+          }
+        ]
+      },
+      "Next": "Success"
+    },
+    "Success": {
+      "Type": "Succeed"
+    }
+  }
+}
