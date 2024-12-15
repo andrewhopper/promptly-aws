@@ -175,6 +175,31 @@ export class AwsModulesStack extends cdk.Stack {
       resources: ['*']
     }));
 
+    // Bedrock Chat Lambda
+    const bedrockChatLambda = new nodejs.NodejsFunction(this, 'BedrockChatFunction', {
+      entry: 'src/lambdas/bedrock-chat/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        CHECKINS_TABLE_NAME: 'UserCheckInsTable',
+      },
+      timeout: cdk.Duration.minutes(1),
+      memorySize: 256,
+    });
+
+    // Add permissions for Bedrock Chat Lambda
+    bedrockChatLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'bedrock:InvokeModel',
+        'dynamodb:PutItem',
+      ],
+      resources: ['*']
+    }));
+
     // Content Generator Lambda
     const contentGeneratorLambda = new nodejs.NodejsFunction(this, 'ContentGeneratorFunction', {
       entry: 'src/lambdas/content-generator/index.ts',

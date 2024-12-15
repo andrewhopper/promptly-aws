@@ -57,6 +57,8 @@ export class AmplifyStack extends cdk.Stack {
       environmentVariables: {
         NEXT_PUBLIC_API_ENDPOINT: '/api',
         NEXT_PUBLIC_AWS_REGION: process.env.AWS_REGION || 'us-east-1',
+        NEXT_PUBLIC_AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
+        NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
       },
       buildSpec: cdk.aws_codebuild.BuildSpec.fromObjectToYaml({
         version: '1.0',
