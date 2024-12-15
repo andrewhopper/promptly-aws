@@ -334,7 +334,12 @@ export class AwsModulesStack extends cdk.Stack {
     // Event pattern for check-in monitoring
     const checkInPattern = {
       source: ['custom.checkin'],
-      detailType: ['CheckInRequired', 'CheckInReceived']
+      detailType: ['CheckInRequired', 'CheckInReceived', 'CheckInOverdue'],
+      detail: {
+        elapsedTime: [{
+          numeric: ['>', 3600000] // Match when elapsed time is greater than 1 hour (3600000 ms)
+        }]
+      }
     };
 
     // Rule for check-in notifications

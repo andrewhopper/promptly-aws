@@ -22,6 +22,14 @@ Events should follow this structure:
 
 1. `CheckInRequired` - Triggers when a check-in is needed
 2. `CheckInReceived` - Triggers when a check-in is recorded
+3. `CheckInOverdue` - Triggers when elapsed time since last check-in exceeds 1 hour
+
+## Event Pattern Details
+
+The event pattern matches on:
+- Source: `custom.checkin`
+- Detail Types: `CheckInRequired`, `CheckInReceived`, `CheckInOverdue`
+- Elapsed Time: Matches when time since last check-in > 1 hour (3600000 ms)
 
 ## Publishing Events
 
@@ -71,10 +79,19 @@ The following Lambda functions are configured as targets:
 Using AWS CLI:
 
 ```bash
+# Test CheckInRequired event
 aws events put-events --entries '[{
   "Source": "custom.checkin",
   "DetailType": "CheckInRequired",
   "Detail": "{\"userId\":\"test123\",\"timestamp\":1234567890000}",
+  "EventBusName": "user-check-in-bus"
+}]'
+
+# Test CheckInOverdue event
+aws events put-events --entries '[{
+  "Source": "custom.checkin",
+  "DetailType": "CheckInOverdue",
+  "Detail": "{\"userId\":\"test123\",\"timestamp\":1234567890000,\"elapsedTime\":3600001}",
   "EventBusName": "user-check-in-bus"
 }]'
 ```
