@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import { Construct } from 'constructs';
 
 export class AwsModulesStack extends cdk.Stack {
@@ -132,6 +133,44 @@ export class AwsModulesStack extends cdk.Stack {
         'chime:UpdateSipRule',
       ],
       resources: ['*'],
+    }));
+
+    // Bedrock Agent Lambda
+    const bedrockAgentLambda = new nodejs.NodejsFunction(this, 'BedrockAgentFunction', {
+      entry: 'src/lambdas/bedrock-agent/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        DYNAMODB_TABLE: 'UserCheckInsTable', // Update with actual table name
+        BEDROCK_AGENT_ID: process.env.BEDROCK_AGENT_ID || 'your-agent-id',
+        BEDROCK_AGENT_ALIAS_ID: process.env.BEDROCK_AGENT_ALIAS_ID || 'your-agent-alias-id'
+      },
+      timeout: cdk.Duration.minutes(1),
+      memorySize: 256,
+    });
+
+    // Add permissions for Bedrock Agent Lambda
+    bedrockAgentLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'bedrock:InvokeAgent',
+        'transcribe:StartStreamTranscription',
+        'polly:SynthesizeSpeech',
+        'dynamodb:PutItem',
+        'dynamodb:GetItem'
+      ],
+      resources: ['*']
+    }));
+
+    // Grant DynamoDB permissions
+    dynamoWriterLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'dynamodb:PutItem',
+      ],
+      resources: ['*'], // Will be updated with specific table ARN
     }));
   }
 }
