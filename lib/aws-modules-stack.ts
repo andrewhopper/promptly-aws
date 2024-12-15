@@ -89,6 +89,15 @@ export class AwsModulesStack extends cdk.Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: true,
+      enforceSSL: true,
+      serverAccessLogsPrefix: 'access-logs/',
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.days(30), // Expire access logs after 30 days
+          prefix: 'access-logs/',
+        }
+      ],
     });
 
     // Bedrock Image Generator Lambda

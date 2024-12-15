@@ -1,17 +1,19 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ImageGenerationEvent {
   prompt: string;
   tone?: 'serious' | 'funny' | 'stern';
   bucketName: string;
+  urlExpirationSeconds?: number;
 }
 
 interface ContentResponse {
   imageId: string;
   s3Location: string;
-  presignedUrl?: string;
+  presignedUrl: string;
   smsMessage: string;
   phoneScript: string;
   emailSubject: string;
@@ -57,9 +59,17 @@ Your System
   };
 };
 
+const generatePresignedUrl = async (bucket: string, key: string, expirationSeconds: number = 3600): Promise<string> => {
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  });
+  return getSignedUrl(s3Client, command, { expiresIn: expirationSeconds });
+};
+
 export const handler = async (event: ImageGenerationEvent): Promise<{ statusCode: number; body: string }> => {
   try {
-    const { prompt, tone = 'serious', bucketName } = event;
+    const { prompt, tone = 'serious', bucketName, urlExpirationSeconds = 3600 } = event;
     const imageId = uuidv4();
     const tonePrompt = getTonePromptPrefix(tone) + prompt;
 
@@ -95,13 +105,30 @@ export const handler = async (event: ImageGenerationEvent): Promise<{ statusCode
       }
     }));
 
+    // Generate presigned URL
+    const presignedUrl = await generatePresignedUrl(bucketName, s3Key, urlExpirationSeconds);
+
     // Generate message content
     const messageContent = generateMessageContent(prompt, tone);
+
+    // Update email body to use presigned URL
+    const emailBodyWithImage = `
+Dear User,
+
+${prompt}
+
+You can view the generated image here: ${presignedUrl}
+
+Best regards,
+Your System
+`.trim();
 
     const result: ContentResponse = {
       imageId,
       s3Location: `s3://${bucketName}/${s3Key}`,
-      ...messageContent
+      presignedUrl,
+      ...messageContent,
+      emailBody: emailBodyWithImage
     };
 
     return {
