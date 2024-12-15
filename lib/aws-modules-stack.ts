@@ -219,6 +219,14 @@ export class AwsModulesStack extends cdk.Stack {
       keyName: bastionKeyPair.keyName,
     });
 
+    // Create monitoring role for RDS enhanced monitoring
+    const monitoringRole = new iam.Role(this, 'RDSMonitoringRole', {
+      assumedBy: new iam.ServicePrincipal('monitoring.rds.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonRDSEnhancedMonitoringRole'),
+      ],
+    });
+
     // Create RDS instance
     const rdsInstance = new rds.DatabaseInstance(this, 'DevPostgresDB', {
       engine: rds.DatabaseInstanceEngine.postgres({
@@ -245,12 +253,12 @@ export class AwsModulesStack extends cdk.Stack {
           'max_connections': '100',
         },
       }),
+      monitoringInterval: cdk.Duration.seconds(60), // Enable detailed monitoring
+      monitoringRole: monitoringRole, // Use the created IAM role
+      enablePerformanceInsights: true,
+      performanceInsightRetention: rds.PerformanceInsightRetention.DEFAULT, // 7 days
+      cloudwatchLogsExports: ['postgresql', 'upgrade'], // Enable CloudWatch logging
     });
-
-    // Enable Performance Insights
-    const cfnDBInstance = rdsInstance.node.defaultChild as rds.CfnDBInstance;
-    cfnDBInstance.enablePerformanceInsights = true;
-    cfnDBInstance.performanceInsightsRetentionPeriod = 7; // 7 days retention
 
     // Add outputs for connection information
     new cdk.CfnOutput(this, 'BastionHostId', {
