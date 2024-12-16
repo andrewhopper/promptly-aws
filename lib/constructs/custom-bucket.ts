@@ -1,30 +1,49 @@
 import { Construct } from 'constructs';
-import { RemovalPolicy } from 'aws-cdk-lib';
+import { RemovalPolicy, CfnOutput } from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 
-export class CustomBucket extends s3.Bucket {
+export class CustomBucket extends Construct {
+  public readonly bucketName: string;
+  public readonly bucket: s3.CfnBucket;
+
   constructor(scope: Construct, id: string) {
-    super(scope, id, {
-      versioned: true,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      removalPolicy: RemovalPolicy.RETAIN,
-      autoDeleteObjects: false,
-      serverAccessLogsPrefix: undefined,
-      serverAccessLogsBucket: undefined,
-      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
-      publicReadAccess: false
+    super(scope, id);
+
+    // Create the bucket using low-level constructs to avoid automatic logging configuration
+    this.bucket = new s3.CfnBucket(this, 'Resource', {
+      versioningConfiguration: {
+        status: 'Enabled'
+      },
+      bucketEncryption: {
+        serverSideEncryptionConfiguration: [{
+          serverSideEncryptionByDefault: {
+            sseAlgorithm: 'AES256'
+          }
+        }]
+      },
+      publicAccessBlockConfiguration: {
+        blockPublicAcls: true,
+        blockPublicPolicy: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+      },
+      ownershipControls: {
+        rules: [{
+          objectOwnership: 'BucketOwnerEnforced'
+        }]
+      }
     });
 
-    // Override the allowLogDelivery method to prevent ACL changes
-    const cfnBucket = this.node.defaultChild as s3.CfnBucket;
-    cfnBucket.addPropertyOverride('AccessControl', 'Private');
-    cfnBucket.addPropertyOverride('PublicAccessBlockConfiguration', {
-      BlockPublicAcls: true,
-      BlockPublicPolicy: true,
-      IgnorePublicAcls: true,
-      RestrictPublicBuckets: true
+    // Apply removal policy
+    this.bucket.applyRemovalPolicy(RemovalPolicy.RETAIN);
+
+    // Store the bucket name
+    this.bucketName = this.bucket.ref;
+
+    // Output the bucket name for reference
+    new CfnOutput(this, 'BucketName', {
+      value: this.bucketName,
+      description: 'The name of the S3 bucket'
     });
   }
 }

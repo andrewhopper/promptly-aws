@@ -1,5 +1,4 @@
-import { Stack, StackProps, App } from 'aws-cdk-lib';
-import { LegacyStackSynthesizer } from 'aws-cdk-lib';
+import { Stack, StackProps, App, DefaultStackSynthesizer } from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { CustomBucket } from './constructs/custom-bucket';
 
@@ -8,10 +7,20 @@ export class AwsModulesStack extends Stack {
     super(scope, id, {
       ...props,
       env: props?.env,
-      synthesizer: new LegacyStackSynthesizer()
+      synthesizer: new DefaultStackSynthesizer({
+        generateBootstrapVersionRule: false,
+        fileAssetsBucketName: 'NONE',
+        bucketPrefix: '',
+        qualifier: 'minimal',
+        cloudFormationExecutionRole: 'NONE',
+        deployRoleArn: 'NONE',
+        fileAssetPublishingRoleArn: 'NONE',
+        imageAssetPublishingRoleArn: 'NONE',
+        lookupRoleArn: 'NONE'
+      })
     });
 
-    // Create S3 bucket using custom construct
+    // Create S3 bucket using custom construct that avoids automatic logging
     const contentBucket = new CustomBucket(this, 'ContentBucket');
 
     // Pass bucket name to Lambda functions that need it
