@@ -12,17 +12,22 @@ export interface AwsModulesStackProps extends cdk.StackProps {}
 
 export class AwsModulesStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: AwsModulesStackProps) {
-    super(scope, id, {
-      ...props,
-      synthesizer: new cdk.DefaultStackSynthesizer({
-        generateBootstrapVersionRule: false,
-        fileAssetsBucketName: 'custom-assets-bucket',
-      }),
-    });
+    super(scope, id, props);
 
-    const commonLambdaProps = {
+    const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'es2020',
+        externalModules: ['aws-sdk'],
+        forceDockerBundling: false,
+      },
       logRetention: logs.RetentionDays.ONE_DAY,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+      environment: {
+        NODE_OPTIONS: '--enable-source-maps',
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      },
     };
 
     const emailSender = new NodejsFunction(this, 'EmailSenderFunction', {
@@ -82,10 +87,6 @@ export class AwsModulesStack extends cdk.Stack {
       entry: 'src/lambdas/dynamodb-writer/index.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
       environment: {
         TABLE_NAME: userCheckInsTable.tableName,
       },
@@ -145,10 +146,6 @@ export class AwsModulesStack extends cdk.Stack {
       entry: 'src/lambdas/bedrock-agent/index.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
       environment: {
         DYNAMODB_TABLE: userCheckInsTable.tableName,
         BEDROCK_AGENT_ID: process.env.BEDROCK_AGENT_ID || 'your-agent-id',
