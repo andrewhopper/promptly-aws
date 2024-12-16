@@ -12,7 +12,7 @@ export class RawBucket extends Construct {
   constructor(scope: Construct, id: string, props?: RawBucketProps) {
     super(scope, id);
 
-    // Create raw CloudFormation template
+    // Create raw CloudFormation template with explicit ACL settings
     const cfnBucket = new CfnResource(this, 'Resource', {
       type: 'AWS::S3::Bucket',
       properties: {
@@ -21,6 +21,7 @@ export class RawBucket extends Construct {
           id.toLowerCase(),
           Fn.select(2, Fn.split('/', Stack.of(this).stackId))
         ]),
+        AccessControl: 'Private',
         PublicAccessBlockConfiguration: {
           BlockPublicAcls: true,
           BlockPublicPolicy: true,
@@ -31,6 +32,10 @@ export class RawBucket extends Construct {
           Rules: [{
             ObjectOwnership: 'BucketOwnerEnforced'
           }]
+        },
+        LoggingConfiguration: {
+          DestinationBucketName: '',
+          LogFilePrefix: ''
         },
         BucketEncryption: {
           ServerSideEncryptionConfiguration: [{

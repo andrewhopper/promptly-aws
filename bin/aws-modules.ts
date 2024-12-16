@@ -3,7 +3,7 @@ import 'source-map-support/register';
 import { App } from 'aws-cdk-lib';
 import { AwsModulesStack } from '../lib/aws-modules-stack';
 
-// Initialize app with minimal configuration
+// Initialize app with minimal configuration and all S3 features disabled
 const app = new App({
   context: {
     '@aws-cdk/core:newStyleStackSynthesis': true,
@@ -15,7 +15,13 @@ const app = new App({
     '@aws-cdk/aws-s3:disableServerAccessLogging': true,
     '@aws-cdk/aws-cloudwatch-logs:disableCloudWatchLogs': true,
     '@aws-cdk/core:target-partitions': ['aws'],
-    '@aws-cdk/core:bootstrapQualifier': 'minimal'
+    '@aws-cdk/core:bootstrapQualifier': 'minimal',
+    '@aws-cdk/core:disableAssetBucketCreation': true,
+    '@aws-cdk/core:suppressAssetBucketCreation': true,
+    '@aws-cdk/core:disableVersionCheck': true,
+    '@aws-cdk/core:disableCloudFormationLogs': true,
+    '@aws-cdk/core:disableStackTraces': true,
+    '@aws-cdk/core:disableMetricsCollection': true
   },
   analyticsReporting: false,
   treeMetadata: false
