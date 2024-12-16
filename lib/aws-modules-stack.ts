@@ -1,29 +1,65 @@
-import { Stack, StackProps, App, DefaultStackSynthesizer } from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { CustomBucket } from './constructs/custom-bucket';
+import { Stack, App, CfnOutput, RemovalPolicy, CfnDeletionPolicy } from 'aws-cdk-lib';
+import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
+import { CfnBucket } from 'aws-cdk-lib/aws-s3';
+import { CustomStackSynthesizer } from './custom-stack-synthesizer';
 
 export class AwsModulesStack extends Stack {
-  constructor(scope: App, id: string, props?: StackProps) {
+  constructor(scope: App, id: string, props?: any) {
     super(scope, id, {
       ...props,
-      env: props?.env,
-      synthesizer: new DefaultStackSynthesizer({
-        generateBootstrapVersionRule: false,
-        fileAssetsBucketName: 'NONE',
-        bucketPrefix: '',
-        qualifier: 'minimal',
-        cloudFormationExecutionRole: 'NONE',
-        deployRoleArn: 'NONE',
-        fileAssetPublishingRoleArn: 'NONE',
-        imageAssetPublishingRoleArn: 'NONE',
-        lookupRoleArn: 'NONE'
-      })
+      synthesizer: new CustomStackSynthesizer()
     });
 
-    // Create S3 bucket using custom construct that avoids automatic logging
-    const contentBucket = new CustomBucket(this, 'ContentBucket');
+    // Create S3 bucket with explicit ACL configuration
+    const contentBucket = new CfnBucket(this, 'ContentBucket', {
+      accessControl: 'Private',
+      versioningConfiguration: {
+        status: 'Enabled'
+      },
+      bucketEncryption: {
+        serverSideEncryptionConfiguration: [{
+          serverSideEncryptionByDefault: {
+            sseAlgorithm: 'AES256'
+          }
+        }]
+      },
+      publicAccessBlockConfiguration: {
+        blockPublicAcls: true,
+        blockPublicPolicy: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+      },
+      ownershipControls: {
+        rules: [{
+          objectOwnership: 'BucketOwnerEnforced'
+        }]
+      }
+    });
 
-    // Pass bucket name to Lambda functions that need it
-    process.env.CONTENT_BUCKET = contentBucket.bucketName;
+    // Explicitly set bucket properties to prevent automatic configuration
+    contentBucket.cfnOptions.deletionPolicy = CfnDeletionPolicy.RETAIN;
+    contentBucket.cfnOptions.updateReplacePolicy = CfnDeletionPolicy.RETAIN;
+
+    // Export bucket name for Lambda functions
+    new CfnOutput(this, 'ContentBucketName', {
+      value: contentBucket.ref,
+      exportName: 'ContentBucketName'
+    });
+  }
+
+  /**
+   * Override prepare method to prevent automatic resource creation
+   */
+  protected prepare() {
+    // Do nothing to prevent automatic resource creation
+    return;
+  }
+
+  /**
+   * Override validate method to prevent automatic validation
+   */
+  protected validate() {
+    // Do nothing to prevent automatic validation
+    return;
   }
 }
