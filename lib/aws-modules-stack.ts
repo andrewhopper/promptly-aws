@@ -15,12 +15,6 @@ export class AwsModulesStack extends cdk.Stack {
     super(scope, id, {
       ...props,
       env: props?.env,
-      synthesizer: new cdk.CliCredentialsStackSynthesizer({
-        fileAssetsBucketName: undefined,
-        bucketPrefix: '',
-        dockerTagPrefix: '',
-        qualifier: 'custom',
-      }),
     });
 
     // Set CDK context to disable S3 features
@@ -30,11 +24,14 @@ export class AwsModulesStack extends cdk.Stack {
     this.node.setContext('@aws-cdk/aws-s3:disableDefaultLogging', true);
     this.node.setContext('@aws-cdk/aws-s3:disableAccessLogging', true);
     this.node.setContext('@aws-cdk/aws-s3:disableServerAccessLogging', true);
+    this.node.setContext('@aws-cdk/core:newStyleStackSynthesis', false);
+    this.node.setContext('@aws-cdk/aws-cloudwatch-logs:disableCloudWatchLogs', true);
 
-    // Create a log group for Lambda functions
+    // Create a log group for Lambda functions with minimal configuration
     const logGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
       retention: logs.RetentionDays.ONE_DAY,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      logGroupClass: logs.LogGroupClass.STANDARD,
     });
 
     // Common Lambda configuration with explicit logging and no asset bundling
@@ -55,6 +52,7 @@ export class AwsModulesStack extends cdk.Stack {
           'process.env.DISABLE_BUNDLING': 'true',
         },
       },
+      logRetention: logs.RetentionDays.ONE_DAY,
       logGroup,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       environment: {
