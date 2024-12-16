@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { CfnResource, CfnOutput } from 'aws-cdk-lib';
+import { CfnResource, Fn, Stack } from 'aws-cdk-lib';
 
 export interface RawBucketProps {
   bucketName?: string;
@@ -12,18 +12,15 @@ export class RawBucket extends Construct {
   constructor(scope: Construct, id: string, props?: RawBucketProps) {
     super(scope, id);
 
-    // Create the bucket using raw CloudFormation
-    const bucket = new CfnResource(this, 'Resource', {
+    // Create raw CloudFormation template
+    const cfnBucket = new CfnResource(this, 'Resource', {
       type: 'AWS::S3::Bucket',
       properties: {
-        AccessControl: 'Private',
-        BucketEncryption: {
-          ServerSideEncryptionConfiguration: [{
-            ServerSideEncryptionByDefault: {
-              SSEAlgorithm: 'AES256'
-            }
-          }]
-        },
+        BucketName: props?.bucketName || Fn.join('-', [
+          Stack.of(this).stackName.toLowerCase(),
+          id.toLowerCase(),
+          Fn.select(2, Fn.split('/', Stack.of(this).stackId))
+        ]),
         PublicAccessBlockConfiguration: {
           BlockPublicAcls: true,
           BlockPublicPolicy: true,
@@ -35,13 +32,20 @@ export class RawBucket extends Construct {
             ObjectOwnership: 'BucketOwnerEnforced'
           }]
         },
+        BucketEncryption: {
+          ServerSideEncryptionConfiguration: [{
+            ServerSideEncryptionByDefault: {
+              SSEAlgorithm: 'AES256'
+            }
+          }]
+        },
         VersioningConfiguration: {
           Status: 'Enabled'
         }
       }
     });
 
-    this.bucketName = bucket.ref;
-    this.bucketArn = bucket.getAtt('Arn').toString();
+    this.bucketName = cfnBucket.ref;
+    this.bucketArn = Fn.getAtt(cfnBucket.logicalId, 'Arn').toString();
   }
 }
