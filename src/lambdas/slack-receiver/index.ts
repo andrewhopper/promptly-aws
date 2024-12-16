@@ -110,6 +110,7 @@ export const handler: Handler = async (event: SlackEvent) => {
     if (event.event.type === 'message') {
       const processedMessage = processSlackEvent(event);
 
+      // Send message to SQS queue with enhanced attributes
       await sqs.send(new SendMessageCommand({
         QueueUrl: process.env.QUEUE_URL,
         MessageBody: JSON.stringify(processedMessage),
@@ -118,9 +119,18 @@ export const handler: Handler = async (event: SlackEvent) => {
             DataType: 'String',
             StringValue: 'slack_message',
           },
+          messageId: {
+            DataType: 'String',
+            StringValue: processedMessage.messageId,
+          },
+          channel: {
+            DataType: 'String',
+            StringValue: processedMessage.channel,
+          },
         },
       }));
 
+      // Send acknowledgment in thread
       await app.client.chat.postMessage({
         channel: processedMessage.channel,
         text: 'Message received and queued for processing!',
@@ -130,7 +140,7 @@ export const handler: Handler = async (event: SlackEvent) => {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          message: 'Event processed successfully',
+          message: 'Event processed and queued successfully',
           data: processedMessage,
         }),
       };
