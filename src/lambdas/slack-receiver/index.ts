@@ -101,19 +101,16 @@ function processSlackEvent(event: SlackEvent): ProcessedMessage {
 
 export const handler: Handler = async (event: SlackEvent) => {
   try {
-    // Initialize Slack app
-    await initializeSlackApp();
+    const app = await initializeSlackApp();
 
-    // Verify event type
     if (!event.type || !event.event || !event.event.type) {
-      throw new Error('Invalid event format');
+      throw new Error('Invalid event structure');
     }
 
-    // Process supported event types
     if (event.event.type === 'message') {
       const processedMessage = processSlackEvent(event);
 
-      // Send message to SQS queue
+      // Send message to SQS queue with enhanced attributes
       await sqs.send(new SendMessageCommand({
         QueueUrl: process.env.QUEUE_URL,
         MessageBody: JSON.stringify(processedMessage),
@@ -133,6 +130,13 @@ export const handler: Handler = async (event: SlackEvent) => {
         },
       }));
 
+      // Send acknowledgment in thread
+      await app.client.chat.postMessage({
+        channel: processedMessage.channel,
+        text: 'Message received and queued for processing!',
+        thread_ts: processedMessage.threadTs,
+      });
+
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -142,7 +146,6 @@ export const handler: Handler = async (event: SlackEvent) => {
       };
     }
 
-    // Unsupported event type
     return {
       statusCode: 400,
       body: JSON.stringify({
@@ -156,6 +159,7 @@ export const handler: Handler = async (event: SlackEvent) => {
       data: slackError.data,
       statusCode: slackError.statusCode,
     });
+
     return {
       statusCode: slackError.statusCode || 500,
       body: JSON.stringify({

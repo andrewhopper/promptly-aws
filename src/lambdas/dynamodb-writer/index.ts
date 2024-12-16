@@ -5,19 +5,23 @@ interface CheckInEvent {
   userId?: string;
 }
 
-const ddbClient = new DynamoDBClient({});
-const TABLE_NAME = 'user-check-ins';
+interface CheckInResponse {
+  statusCode: number;
+  body: string;
+}
 
-export const handler = async (event: CheckInEvent) => {
+const ddbClient = new DynamoDBClient({});
+
+export const handler = async (event: CheckInEvent): Promise<CheckInResponse> => {
   try {
     const userId = event.userId || uuidv4();
-    const timestamp = new Date().toISOString();
+    const timestamp = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
     const params: PutItemCommandInput = {
-      TableName: TABLE_NAME,
+      TableName: process.env.TABLE_NAME || 'user-check-ins',
       Item: {
         user_id: { S: userId },
-        last_checkin_at: { S: timestamp }
+        last_checkin_at: { N: timestamp.toString() }
       }
     };
 
@@ -29,14 +33,18 @@ export const handler = async (event: CheckInEvent) => {
       body: JSON.stringify({
         message: 'Check-in recorded successfully',
         userId,
-        timestamp
+        timestamp,
+        humanReadableTime: new Date(timestamp * 1000).toISOString()
       })
     };
   } catch (error) {
     console.error('Error writing to DynamoDB:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to record check-in', error })
+      body: JSON.stringify({
+        message: 'Failed to record check-in',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     };
   }
 };
