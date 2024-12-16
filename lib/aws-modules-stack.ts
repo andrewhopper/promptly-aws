@@ -16,17 +16,7 @@ export class AwsModulesStack extends cdk.Stack {
       env: props?.env,
     });
 
-    // Set CDK context to disable S3 features
-    this.node.setContext('@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy', false);
-    this.node.setContext('@aws-cdk/aws-s3:createDefaultLoggingPolicy', false);
-    this.node.setContext('@aws-cdk/aws-s3:defaultEncryption', false);
-    this.node.setContext('@aws-cdk/aws-s3:disableDefaultLogging', true);
-    this.node.setContext('@aws-cdk/aws-s3:disableAccessLogging', true);
-    this.node.setContext('@aws-cdk/aws-s3:disableServerAccessLogging', true);
-    this.node.setContext('@aws-cdk/core:newStyleStackSynthesis', false);
-    this.node.setContext('@aws-cdk/aws-cloudwatch-logs:disableCloudWatchLogs', true);
-
-    // Common Lambda configuration with minimal logging
+    // Common Lambda configuration with absolute minimal settings
     const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
       bundling: {
         minify: false,
@@ -40,13 +30,8 @@ export class AwsModulesStack extends cdk.Stack {
           beforeInstall: () => [],
           afterBundling: () => [],
         },
-        define: {
-          'process.env.DISABLE_BUNDLING': 'true',
-        },
       },
-      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       environment: {
-        NODE_OPTIONS: '--enable-source-maps',
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       },
     };
