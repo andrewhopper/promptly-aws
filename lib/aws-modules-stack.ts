@@ -1,13 +1,11 @@
-import { Stack, App, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
+import { Stack, App, CfnOutput } from 'aws-cdk-lib';
 import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
 import { CfnBucket } from 'aws-cdk-lib/aws-s3';
-import { CustomStackSynthesizer } from './custom-stack-synthesizer';
 
 export class AwsModulesStack extends Stack {
   constructor(scope: App, id: string, props?: any) {
     super(scope, id, {
       ...props,
-      synthesizer: new CustomStackSynthesizer(),
       env: props?.env
     });
 
@@ -42,21 +40,5 @@ export class AwsModulesStack extends Stack {
       value: contentBucket.ref,
       exportName: 'ContentBucketName'
     });
-  }
-
-  /**
-   * Override prepare method to prevent automatic resource creation
-   */
-  protected prepare() {
-    // Do nothing to prevent automatic resource creation
-    return;
-  }
-
-  /**
-   * Override validate method to prevent automatic validation
-   */
-  protected validate() {
-    // Do nothing to prevent automatic validation
-    return;
   }
 }
