@@ -1,4 +1,5 @@
-import { Stack, App, CfnOutput, CfnResource } from 'aws-cdk-lib';
+import { Stack, App, CfnOutput, CfnResource, IResolvable } from 'aws-cdk-lib';
+import { CustomStackSynthesizer } from './custom-stack-synthesizer';
 
 interface AwsModulesStackProps {
   env?: {
@@ -11,7 +12,7 @@ export class AwsModulesStack extends Stack {
   constructor(scope: App, id: string, props?: AwsModulesStackProps) {
     super(scope, id, {
       ...props,
-      synthesizer: undefined
+      synthesizer: new CustomStackSynthesizer()
     });
 
     // Create S3 bucket using direct CloudFormation template
@@ -29,10 +30,6 @@ export class AwsModulesStack extends Stack {
           Rules: [{
             ObjectOwnership: 'BucketOwnerEnforced'
           }]
-        },
-        LoggingConfiguration: {
-          DestinationBucketName: '',
-          LogFilePrefix: ''
         },
         BucketEncryption: {
           ServerSideEncryptionConfiguration: [{
@@ -52,5 +49,21 @@ export class AwsModulesStack extends Stack {
       value: cfnBucket.ref,
       exportName: 'ContentBucketName'
     });
+  }
+
+  // Override bind method to prevent implicit bucket creation
+  public bind(): IResolvable {
+    return {
+      creationStack: [],
+      resolve: () => ({
+        s3Bucket: undefined,
+        s3ObjectKey: undefined,
+        assetHash: 'NONE',
+        bucketName: 'NONE',
+        objectKey: 'NONE',
+        packaging: 'none',
+        sourceHash: 'NONE'
+      })
+    };
   }
 }

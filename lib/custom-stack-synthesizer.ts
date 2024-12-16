@@ -22,9 +22,6 @@ export class CustomStackSynthesizer extends DefaultStackSynthesizer {
     process.env.CDK_DISABLE_ASSET_BUNDLING = 'true';
     process.env.CDK_NEW_BOOTSTRAP = '1';
 
-    // Skip asset manifest creation
-    session.assembly.skipValidation = true;
-
     super.synthesize(session);
   }
 
