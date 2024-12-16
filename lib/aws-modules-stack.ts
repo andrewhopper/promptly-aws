@@ -1,4 +1,4 @@
-import { Stack, App, CfnOutput, RemovalPolicy, CfnDeletionPolicy } from 'aws-cdk-lib';
+import { Stack, App, CfnOutput, RemovalPolicy } from 'aws-cdk-lib';
 import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
 import { CfnBucket } from 'aws-cdk-lib/aws-s3';
 import { CustomStackSynthesizer } from './custom-stack-synthesizer';
@@ -7,7 +7,8 @@ export class AwsModulesStack extends Stack {
   constructor(scope: App, id: string, props?: any) {
     super(scope, id, {
       ...props,
-      synthesizer: new CustomStackSynthesizer()
+      synthesizer: new CustomStackSynthesizer(),
+      env: props?.env
     });
 
     // Create S3 bucket with explicit ACL configuration
@@ -35,10 +36,6 @@ export class AwsModulesStack extends Stack {
         }]
       }
     });
-
-    // Explicitly set bucket properties to prevent automatic configuration
-    contentBucket.cfnOptions.deletionPolicy = CfnDeletionPolicy.RETAIN;
-    contentBucket.cfnOptions.updateReplacePolicy = CfnDeletionPolicy.RETAIN;
 
     // Export bucket name for Lambda functions
     new CfnOutput(this, 'ContentBucketName', {
