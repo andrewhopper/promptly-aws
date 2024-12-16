@@ -38,7 +38,9 @@ export class AwsModulesStack extends Stack {
       },
       versioningConfiguration: {
         status: 'Enabled'
-      }
+      },
+      // Explicitly disable logging to prevent automatic log delivery setup
+      loggingConfiguration: undefined
     });
 
     // Add the output
