@@ -1,6 +1,7 @@
 import { Handler } from 'aws-lambda';
 import { App, LogLevel } from '@slack/bolt';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 interface SlackMessage {
   channel: string;
@@ -19,7 +20,21 @@ interface SlackError extends Error {
 }
 
 const secretsManager = new SecretsManagerClient({});
+const sqs = new SQSClient({});
 let slackApp: App | null = null;
+
+async function validateChannel(app: App, channel: string): Promise<boolean> {
+  try {
+    const result = await app.client.conversations.info({ channel });
+    return result.ok;
+  } catch (error) {
+    const slackError = error as SlackError;
+    if (slackError.data?.error === 'channel_not_found') {
+      return false;
+    }
+    throw error;
+  }
+}
 
 async function initializeSlackApp() {
   if (slackApp) return slackApp;
@@ -49,19 +64,6 @@ async function initializeSlackApp() {
   } catch (error) {
     console.error('Error initializing Slack app:', error);
     throw new Error('Failed to initialize Slack app');
-  }
-}
-
-async function validateChannel(app: App, channel: string): Promise<boolean> {
-  try {
-    const result = await app.client.conversations.info({ channel });
-    return result.ok;
-  } catch (error) {
-    const slackError = error as SlackError;
-    if (slackError.data?.error === 'channel_not_found') {
-      return false;
-    }
-    throw error;
   }
 }
 
@@ -98,6 +100,14 @@ export const handler: Handler = async (event: SlackMessage) => {
 
     if (!response.ok) {
       throw new Error(`Slack API error: ${response.error}`);
+    }
+
+    // Queue message for processing if needed
+    if (process.env.QUEUE_URL) {
+      await sqs.send(new SendMessageCommand({
+        QueueUrl: process.env.QUEUE_URL,
+        MessageBody: JSON.stringify(event),
+      }));
     }
 
     return {
