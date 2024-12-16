@@ -8,6 +8,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as assets from 'aws-cdk-lib/aws-s3-assets';
 
 export interface AwsModulesStackProps extends cdk.StackProps {}
 
@@ -19,6 +20,19 @@ export class AwsModulesStack extends cdk.Stack {
     const logGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
       retention: logs.RetentionDays.ONE_DAY,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Create an S3 bucket with minimal configuration
+    const assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
+      versioned: false,
+      publicReadAccess: false,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      serverAccessLogsPrefix: undefined,
+      serverAccessLogsBucket: undefined,
     });
 
     const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
@@ -40,6 +54,7 @@ export class AwsModulesStack extends cdk.Stack {
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+        ASSETS_BUCKET_NAME: assetsBucket.bucketName,
       },
     };
 

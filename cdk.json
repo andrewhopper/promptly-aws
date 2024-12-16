@@ -17,20 +17,10 @@
     ]
   },
   "context": {
-    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
-    "@aws-cdk/core:checkSecretUsage": true,
-    "@aws-cdk/core:target-partitions": [
-      "aws",
-      "aws-cn"
-    ],
-    "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": false,
-    "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
-    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
-    "@aws-cdk/aws-iam:minimizePolicies": true,
-    "@aws-cdk/core:validateSnapshotRemovalPolicy": true,
-    "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
-    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": false,
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/core:enableAssetBucketVersioning": false,
     "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": false,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": false,
     "@aws-cdk/aws-s3:defaultEncryption": false,
     "@aws-cdk/aws-s3:crossRegionReplicationDefaultRole": false,
     "@aws-cdk/aws-s3:bucketKeyEnabled": false,
@@ -39,24 +29,21 @@
     "@aws-cdk/aws-s3:disableDefaultBucketEncryption": true,
     "@aws-cdk/aws-s3:disableAutoDeleteObjects": true,
     "@aws-cdk/aws-s3:disableDefaultLogging": true,
-    "@aws-cdk/aws-lambda:logRetentionInDays": 1,
+    "@aws-cdk/aws-s3:disableAccessLogging": true,
+    "@aws-cdk/aws-s3:disableServerAccessLogging": true,
+    "@aws-cdk/aws-s3:disableCloudWatchMetrics": true,
+    "@aws-cdk/aws-s3:disableBucketPolicyUpdates": true,
+    "@aws-cdk/aws-s3:disableObjectLockConfiguration": true,
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/aws-lambda:enableFunctionUrlInStackSynthesis": false,
     "@aws-cdk/aws-lambda:createLogGroup": false,
     "@aws-cdk/aws-lambda:disableInlineCode": true,
     "@aws-cdk/aws-lambda:disableDefaultLogGroupName": true,
-    "@aws-cdk/core:newStyleStackSynthesis": false,
-    "@aws-cdk/core:enableAssetBundling": false,
-    "@aws-cdk/aws-s3-assets:requireHashOutput": false,
-    "@aws-cdk/aws-s3-assets:disableVersionedAssets": true,
-    "@aws-cdk/aws-s3:disableTransferAcceleration": true,
-    "@aws-cdk/aws-s3:disableIntelligentTiering": true,
-    "@aws-cdk/aws-s3:disableBucketPolicyUpdates": true,
-    "@aws-cdk/aws-s3:disableObjectLockConfiguration": true,
-    "@aws-cdk/core:bootstrapQualifier": "custom",
-    "@aws-cdk/core:stackRelativeExports": true,
-    "@aws-cdk/core:experimentalStackSynthesis": true,
-    "@aws-cdk/aws-s3:disableAccessLogging": true,
-    "@aws-cdk/aws-s3:disableServerAccessLogging": true,
-    "@aws-cdk/aws-s3:disableCloudWatchMetrics": true
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": [
+      "aws",
+      "aws-cn"
+    ],
+    "@aws-cdk/core:bootstrapQualifier": "custom"
   }
 }
