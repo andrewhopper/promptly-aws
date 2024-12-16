@@ -44,14 +44,14 @@ export class AwsModulesStack extends cdk.Stack {
 
     // Create SQS queue for Slack messages
     const slackMessagesQueue = new sqs.Queue(this, 'SlackMessagesQueue', {
-      visibilityTimeout: cdk.Duration.seconds(300),
+      visibilityTimeout: cdk.Duration.seconds(30),
       retentionPeriod: cdk.Duration.days(14),
     });
 
     // Create Secrets Manager secret for Slack tokens
-    const slackTokens = new secretsmanager.Secret(this, 'SlackTokens', {
-      secretName: 'slack/tokens',
-      description: 'Slack bot and app tokens',
+    const slackTokens = new secretsmanager.Secret(this, 'SlackCredentials', {
+      secretName: 'slack/credentials',
+      description: 'Slack API credentials for bot',
       generateSecretString: {
         secretStringTemplate: JSON.stringify({
           SLACK_BOT_TOKEN: '',
@@ -68,7 +68,7 @@ export class AwsModulesStack extends cdk.Stack {
       entry: 'src/lambdas/slack-sender/index.ts',
       handler: 'handler',
       environment: {
-        SLACK_SECRETS_ARN: slackTokens.secretArn,
+        SLACK_SECRET_ARN: slackTokens.secretArn,
       },
     });
 
@@ -78,7 +78,7 @@ export class AwsModulesStack extends cdk.Stack {
       entry: 'src/lambdas/slack-receiver/index.ts',
       handler: 'handler',
       environment: {
-        SLACK_SECRETS_ARN: slackTokens.secretArn,
+        SLACK_SECRET_ARN: slackTokens.secretArn,
         QUEUE_URL: slackMessagesQueue.queueUrl,
       },
     });
