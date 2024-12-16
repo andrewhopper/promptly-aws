@@ -41,9 +41,10 @@
     "@aws-cdk/aws-lambda:disableDefaultLogGroupName": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [
-      "aws",
-      "aws-cn"
+      "aws"
     ],
-    "@aws-cdk/core:bootstrapQualifier": "custom"
+    "@aws-cdk/core:bootstrapQualifier": "minimal",
+    "@aws-cdk/core:disableAssetBucketCreation": true,
+    "@aws-cdk/core:suppressAssetBucketCreation": true
   }
 }

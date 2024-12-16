@@ -3,6 +3,9 @@ import 'source-map-support/register';
 import { App } from 'aws-cdk-lib';
 import { AwsModulesStack } from '../lib/aws-modules-stack';
 
+process.env.CDK_DISABLE_ASSET_STAGING = 'true';
+process.env.CDK_DISABLE_VERSION_REPORTING = 'true';
+
 const app = new App({
   context: {
     '@aws-cdk/core:newStyleStackSynthesis': false,
@@ -15,6 +18,9 @@ const app = new App({
     '@aws-cdk/aws-s3:disableAccessLogging': true,
     '@aws-cdk/aws-s3:disableServerAccessLogging': true,
     '@aws-cdk/aws-cloudwatch-logs:disableCloudWatchLogs': true,
+    '@aws-cdk/core:target-partitions': ['aws'],
+    '@aws-cdk/core:disableAssetBucketCreation': true,
+    '@aws-cdk/core:suppressAssetBucketCreation': true,
   }
 });
 
