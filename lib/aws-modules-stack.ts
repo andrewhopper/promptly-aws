@@ -1,37 +1,13 @@
-import { Stack, App, CfnOutput, aws_s3 as s3, StackProps } from 'aws-cdk-lib';
+import { Stack, App, CfnOutput, StackProps } from 'aws-cdk-lib';
 import { CustomStackSynthesizer } from './custom-stack-synthesizer';
 import { Construct } from 'constructs';
+import { CfnBucket } from 'aws-cdk-lib/aws-s3';
 
 interface AwsModulesStackProps extends StackProps {
   env?: {
     account?: string;
     region?: string;
   };
-}
-
-// Base stack class that prevents automatic bucket creation
-class NoAssetStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, {
-      ...props,
-      // Use minimal synthesizer configuration
-      synthesizer: new CustomStackSynthesizer()
-    });
-
-    // Override methods that might create buckets
-    const stack = this as any;
-    stack.templateOptions = {
-      ...stack.templateOptions,
-      description: 'Stack with no automatic bucket creation',
-      transforms: [],
-      metadata: {}
-    };
-  }
-
-  // Override asset methods
-  protected allocateLogicalId(): string {
-    return '';
-  }
 }
 
 // Create a raw bucket construct that doesn't use high-level features
@@ -42,7 +18,7 @@ class RawBucket extends Construct {
     super(scope, id);
 
     // Use L1 construct directly without any high-level features
-    const bucket = new s3.CfnBucket(this, 'Bucket', {
+    const bucket = new CfnBucket(this, 'Bucket', {
       accessControl: 'Private',
       publicAccessBlockConfiguration: {
         blockPublicAcls: true,
@@ -68,6 +44,31 @@ class RawBucket extends Construct {
     });
 
     this.bucketName = bucket.ref;
+  }
+}
+
+// Base stack class that prevents automatic bucket creation
+class NoAssetStack extends Stack {
+  constructor(scope: Construct, id: string, props?: StackProps) {
+    super(scope, id, {
+      ...props,
+      // Use minimal synthesizer configuration
+      synthesizer: new CustomStackSynthesizer()
+    });
+
+    // Override methods that might create buckets
+    const stack = this as any;
+    stack.templateOptions = {
+      ...stack.templateOptions,
+      description: 'Stack with no automatic bucket creation',
+      transforms: [],
+      metadata: {}
+    };
+  }
+
+  // Override asset methods
+  protected allocateLogicalId(): string {
+    return '';
   }
 }
 

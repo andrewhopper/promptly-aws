@@ -4,43 +4,41 @@ export class CustomStackSynthesizer extends DefaultStackSynthesizer {
   constructor() {
     super({
       generateBootstrapVersionRule: false,
-      // Use empty strings to prevent bucket creation
-      fileAssetsBucketName: '',
+      fileAssetsBucketName: 'NONE',  // Use NONE to completely disable bucket creation
       bucketPrefix: '',
       qualifier: 'minimal',
-      cloudFormationExecutionRole: '',
-      deployRoleArn: '',
-      fileAssetPublishingRoleArn: '',
-      imageAssetPublishingRoleArn: '',
-      lookupRoleArn: ''
+      cloudFormationExecutionRole: 'NONE',
+      deployRoleArn: 'NONE',
+      fileAssetPublishingRoleArn: 'NONE',
+      imageAssetPublishingRoleArn: 'NONE',
+      lookupRoleArn: 'NONE'
     });
-
-    // Disable asset staging before any synthesis
-    process.env.CDK_DISABLE_ASSET_STAGING = 'true';
-    process.env.CDK_NO_ASSET_BUCKET = 'true';
-    process.env.CDK_NO_STAGING = 'true';
   }
 
   public synthesize(session: ISynthesisSession): void {
+    // Prevent any asset staging or bucket creation
+    const originalAddAsset = session.assembly.addAsset;
+    const originalAddArtifact = session.assembly.addArtifact;
+    const originalAddMissing = session.assembly.addMissing;
+
+    // Override methods to prevent asset staging
+    session.assembly.addAsset = () => ({ sourceHash: '', id: '' });
+    session.assembly.addArtifact = () => {};
+    session.assembly.addMissing = () => {};
+
     try {
-      // Override asset staging methods
-      const originalAddAsset = session.assembly.addAsset;
-      session.assembly.addAsset = () => ({
-        sourceHash: '',
-        fileName: '',
-        packaging: 'none',
-        id: ''
-      });
-
       super.synthesize(session);
-
-      // Restore original method after synthesis
-      session.assembly.addAsset = originalAddAsset;
-    } catch (err: unknown) {
-      // Only rethrow non-bucket related errors
-      if (err instanceof Error && !err.message.includes('bucket')) {
+    } catch (err) {
+      // Ignore bucket-related errors
+      const error = err as Error;
+      if (!error.message?.includes('bucket')) {
         throw err;
       }
+    } finally {
+      // Restore original methods
+      session.assembly.addAsset = originalAddAsset;
+      session.assembly.addArtifact = originalAddArtifact;
+      session.assembly.addMissing = originalAddMissing;
     }
   }
 
