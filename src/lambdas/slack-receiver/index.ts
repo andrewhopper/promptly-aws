@@ -122,6 +122,14 @@ export const handler: Handler = async (event: SlackEvent) => {
             DataType: 'String',
             StringValue: 'slack_message',
           },
+          messageId: {
+            DataType: 'String',
+            StringValue: processedMessage.messageId,
+          },
+          channel: {
+            DataType: 'String',
+            StringValue: processedMessage.channel,
+          },
         },
       }));
 
@@ -143,12 +151,17 @@ export const handler: Handler = async (event: SlackEvent) => {
     };
   } catch (error) {
     const slackError = error as SlackError;
-    console.error('Error processing Slack event:', slackError);
+    console.error('Error processing Slack event:', {
+      error: slackError.message,
+      data: slackError.data,
+      statusCode: slackError.statusCode,
+    });
     return {
       statusCode: slackError.statusCode || 500,
       body: JSON.stringify({
         message: 'Failed to process Slack event',
         error: slackError.message,
+        details: slackError.data,
       }),
     };
   }

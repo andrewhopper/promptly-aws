@@ -138,8 +138,8 @@ export class AwsModulesStack extends cdk.Stack {
 
     // Create Secrets Manager secret for Slack credentials
     const slackSecret = new secretsmanager.Secret(this, 'SlackCredentials', {
-      secretName: 'slack-bot-credentials',
-      description: 'Slack bot credentials for messaging integration',
+      secretName: 'slack/credentials',
+      description: 'Slack API credentials for bot',
       generateSecretString: {
         secretStringTemplate: JSON.stringify({
           SLACK_BOT_TOKEN: '',
