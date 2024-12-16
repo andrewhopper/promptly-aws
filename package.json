@@ -20,13 +20,13 @@
     "@aws-sdk/lib-dynamodb": "^3.712.0",
     "@types/aws-sdk": "^0.0.42",
     "@types/jest": "^29.5.14",
-    "@types/node": "22.7.9",
+    "@types/node": "^22.7.9",
     "aws-cdk": "2.173.1",
     "aws-cdk-lib": "2.173.1",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
-    "ts-node": "10.9.2",
-    "typescript": "5.6.3",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.6.3",
     "vocode": "^1.0.37"
   },
   "dependencies": {
@@ -36,17 +36,22 @@
     "@aws-sdk/client-dynamodb": "^3.712.0",
     "@aws-sdk/client-lambda": "^3.712.0",
     "@aws-sdk/client-s3": "^3.712.0",
+    "@aws-sdk/client-secrets-manager": "^3.712.0",
     "@aws-sdk/client-ses": "^3.712.0",
     "@aws-sdk/client-sns": "^3.712.0",
+    "@aws-sdk/client-sqs": "^3.712.0",
     "@aws-sdk/s3-request-presigner": "^3.712.0",
-    "@slack/bolt": "^3.0.0",
+    "@aws-sdk/util-dynamodb": "^3.712.0",
+    "@slack/bolt": "^3.22.0",
     "aws-amplify": "^6.0.0",
-    "constructs": "10.4.2",
+    "aws-cdk-lib": "2.173.1",
+    "constructs": "^10.0.0",
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-chat-elements": "^12.0.0",
     "react-dom": "^18.2.0",
     "source-map-support": "^0.5.21",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.1",
+    "vocode": "^1.0.0"
   }
 }

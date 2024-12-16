@@ -3,7 +3,11 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import * as path from 'path';
 
 export class AwsModulesStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -19,39 +23,62 @@ export class AwsModulesStack extends cdk.Stack {
       serverAccessLogsPrefix: 'access-logs/'
     });
 
-    // Email Lambda
-    const emailLambda = new nodejs.NodejsFunction(this, 'EmailSenderFunction', {
-      entry: 'src/lambdas/email-sender/index.ts',
-      handler: 'handler',
+    // Email sender Lambda
+    const emailSender = new nodejs.NodejsFunction(this, 'EmailSenderFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
+      entry: path.join(__dirname, '../src/lambdas/email-sender/index.ts'),
+      handler: 'handler',
+      environment: {
+        FROM_EMAIL_ADDRESS: 'noreply@yourdomain.com',
       },
     });
 
-    // Add SES permissions
-    emailLambda.addToRolePolicy(new iam.PolicyStatement({
+    // Grant SES permissions to email sender Lambda
+    emailSender.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
       actions: ['ses:SendEmail', 'ses:SendRawEmail'],
       resources: ['*'],
     }));
 
-    // SMS Lambda
-    const smsLambda = new nodejs.NodejsFunction(this, 'SmsSenderFunction', {
-      entry: 'src/lambdas/sms-sender/index.ts',
-      handler: 'handler',
+    // SMS sender Lambda
+    const smsSender = new nodejs.NodejsFunction(this, 'SmsSenderFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
+      entry: path.join(__dirname, '../src/lambdas/sms-sender/index.ts'),
+      handler: 'handler',
     });
 
-    // Add SNS permissions
-    smsLambda.addToRolePolicy(new iam.PolicyStatement({
+    // Grant SNS permissions to SMS sender Lambda
+    smsSender.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
       actions: ['sns:Publish'],
       resources: ['*'],
     }));
+
+    // Create DynamoDB table for user check-ins
+    const userCheckInsTable = new dynamodb.Table(this, 'UserCheckInsTable', {
+      tableName: 'user-check-ins',
+      partitionKey: {
+        name: 'user_id',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'last_checkin_at',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      timeToLiveAttribute: 'ttl',
+    });
+
+    // Add GSI for querying by last_checkin_at
+    userCheckInsTable.addGlobalSecondaryIndex({
+      indexName: 'LastCheckInIndex',
+      partitionKey: {
+        name: 'last_checkin_at',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
 
     // DynamoDB Writer Lambda
     const dynamoWriterLambda = new nodejs.NodejsFunction(this, 'DynamoWriterFunction', {
@@ -62,44 +89,56 @@ export class AwsModulesStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
       },
+      environment: {
+        TABLE_NAME: userCheckInsTable.tableName,
+      },
     });
+
+    // Grant DynamoDB write permissions
+    userCheckInsTable.grantWriteData(dynamoWriterLambda);
 
     // DynamoDB Reader Lambda
     const dynamoReaderLambda = new nodejs.NodejsFunction(this, 'DynamoReaderFunction', {
       entry: 'src/lambdas/dynamodb-reader/index.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
+      environment: {
+        TABLE_NAME: userCheckInsTable.tableName,
       },
     });
 
-    // Add DynamoDB permissions for both lambdas
-    const dynamoDbPolicy = new iam.PolicyStatement({
-      actions: [
-        'dynamodb:GetItem',
-        'dynamodb:PutItem',
-        'dynamodb:UpdateItem',
-        'dynamodb:DeleteItem',
-        'dynamodb:Query',
-        'dynamodb:Scan',
-      ],
-      resources: ['*'], // Will be updated with specific table ARN
-    });
+    // Grant DynamoDB read permissions
+    userCheckInsTable.grantReadData(dynamoReaderLambda);
 
-    dynamoWriterLambda.addToRolePolicy(dynamoDbPolicy);
-    dynamoReaderLambda.addToRolePolicy(dynamoDbPolicy);
+    // Create S3 bucket for generated images
+    const generatedImagesBucket = new s3.Bucket(this, 'GeneratedImagesBucket', {
+      bucketName: `${this.account}-${this.region}-generated-images`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      versioned: true,
+      enforceSSL: true,
+      serverAccessLogsPrefix: 'access-logs/',
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.days(30),
+          prefix: 'access-logs/',
+        }
+      ],
+    });
 
     // Bedrock Image Generator Lambda
     const bedrockLambda = new nodejs.NodejsFunction(this, 'BedrockImageGeneratorFunction', {
       entry: 'src/lambdas/bedrock-image-generator/index.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
+      environment: {
+        BUCKET_NAME: generatedImagesBucket.bucketName,
       },
+      timeout: cdk.Duration.minutes(1),
+      memorySize: 256,
     });
 
     // Add Bedrock permissions
@@ -111,39 +150,27 @@ export class AwsModulesStack extends cdk.Stack {
     }));
 
     // Add S3 permissions for Bedrock Lambda
-    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        's3:PutObject',
-        's3:GetObject',
-        's3:DeleteObject',
-      ],
-      resources: ['*'], // Will be updated with specific bucket ARN
-    }));
+    generatedImagesBucket.grantReadWrite(bedrockLambda);
 
-    // Chime SDK Voice Lambda
-    const chimeLambda = new nodejs.NodejsFunction(this, 'ChimeVoiceFunction', {
-      entry: 'src/lambdas/chime-voice/index.ts',
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
+    // Create SQS queue for Slack messages
+    const slackMessagesQueue = new sqs.Queue(this, 'SlackMessagesQueue', {
+      visibilityTimeout: cdk.Duration.seconds(30),
+      retentionPeriod: cdk.Duration.days(14),
     });
 
-    // Add Chime SDK Voice permissions
-    chimeLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'chime:CreateSipMediaApplication',
-        'chime:DeleteSipMediaApplication',
-        'chime:GetSipMediaApplication',
-        'chime:UpdateSipMediaApplication',
-        'chime:CreateSipRule',
-        'chime:DeleteSipRule',
-        'chime:UpdateSipRule',
-      ],
-      resources: ['*'],
-    }));
+    // Create Secrets Manager secret for Slack tokens
+    const slackTokens = new secretsmanager.Secret(this, 'SlackCredentials', {
+      secretName: 'slack/credentials',
+      description: 'Slack API credentials for bot',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          SLACK_BOT_TOKEN: '',
+          SLACK_APP_TOKEN: '',
+          SLACK_SIGNING_SECRET: '',
+        }),
+        generateStringKey: 'dummy',
+      },
+    });
 
     // Bedrock Agent Lambda
     const bedrockAgentLambda = new nodejs.NodejsFunction(this, 'BedrockAgentFunction', {
@@ -155,7 +182,7 @@ export class AwsModulesStack extends cdk.Stack {
         sourceMap: true,
       },
       environment: {
-        DYNAMODB_TABLE: 'UserCheckInsTable', // Update with actual table name
+        DYNAMODB_TABLE: userCheckInsTable.tableName,
         BEDROCK_AGENT_ID: process.env.BEDROCK_AGENT_ID || 'your-agent-id',
         BEDROCK_AGENT_ALIAS_ID: process.env.BEDROCK_AGENT_ALIAS_ID || 'your-agent-alias-id'
       },
@@ -175,108 +202,30 @@ export class AwsModulesStack extends cdk.Stack {
       resources: ['*']
     }));
 
-    // Bedrock Chat Lambda
-    const bedrockChatLambda = new nodejs.NodejsFunction(this, 'BedrockChatFunction', {
-      entry: 'src/lambdas/bedrock-chat/index.ts',
-      handler: 'handler',
+    // Slack message sender Lambda
+    const slackSender = new nodejs.NodejsFunction(this, 'SlackSenderFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
+      entry: 'src/lambdas/slack-sender/index.ts',
+      handler: 'handler',
       environment: {
-        CHECKINS_TABLE_NAME: 'UserCheckInsTable',
+        SLACK_SECRET_ARN: slackTokens.secretArn,
       },
-      timeout: cdk.Duration.minutes(1),
-      memorySize: 256,
     });
 
-    // Add permissions for Bedrock Chat Lambda
-    bedrockChatLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'bedrock:InvokeModel',
-        'dynamodb:PutItem',
-      ],
-      resources: ['*']
-    }));
-
-    // Content Generator Lambda
-    const contentGeneratorLambda = new nodejs.NodejsFunction(this, 'ContentGeneratorFunction', {
-      entry: 'src/lambdas/content-generator/index.ts',
-      handler: 'handler',
+    // Slack message receiver Lambda
+    const slackReceiver = new nodejs.NodejsFunction(this, 'SlackReceiverFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
+      entry: 'src/lambdas/slack-receiver/index.ts',
+      handler: 'handler',
       environment: {
-        CONTENT_BUCKET: contentBucket.bucketName
+        SLACK_SECRET_ARN: slackTokens.secretArn,
+        QUEUE_URL: slackMessagesQueue.queueUrl,
       },
-      timeout: cdk.Duration.minutes(1),
-      memorySize: 256,
     });
 
-    // Add Bedrock permissions for content generation
-    contentGeneratorLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'bedrock:InvokeModel'
-      ],
-      resources: ['*']
-    }));
-
-    // Add S3 permissions for image storage
-    contentGeneratorLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        's3:PutObject',
-        's3:GetObject',
-        's3:DeleteObject'
-      ],
-      resources: [
-        `${contentBucket.bucketArn}/*`
-      ]
-    }));
-
-    // Grant DynamoDB permissions
-    dynamoWriterLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'dynamodb:PutItem',
-      ],
-      resources: ['*'], // Will be updated with specific table ARN
-    }));
-
-    // Voice Check-in Lambda
-    const voiceCheckInLambda = new nodejs.NodejsFunction(this, 'VoiceCheckInFunction', {
-      entry: 'src/lambdas/voice-check-in/index.ts',
-      handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_18_X,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
-      environment: {
-        BEDROCK_AGENT_ID: process.env.BEDROCK_AGENT_ID || '',
-        BEDROCK_AGENT_ALIAS_ID: process.env.BEDROCK_AGENT_ALIAS_ID || '',
-        SIP_MEDIA_APP_ID: process.env.SIP_MEDIA_APP_ID || '',
-        DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
-        CONTENT_GENERATOR_FUNCTION_NAME: contentGeneratorLambda.functionName
-      },
-      timeout: cdk.Duration.minutes(5),
-      memorySize: 512,
-    });
-
-    // Add permissions for voice check-in Lambda
-    voiceCheckInLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: [
-        'chime:CreateSipMediaApplicationCall',
-        'chime:StartSipMediaApplicationCall',
-        'chime:UpdateSipMediaApplicationCall',
-        'transcribe:StartStreamTranscription',
-        'bedrock:InvokeAgent',
-        'polly:SynthesizeSpeech',
-        'dynamodb:PutItem',
-        'lambda:InvokeFunction'
-      ],
-      resources: ['*']
-    }));
+    // Grant permissions
+    slackTokens.grantRead(slackSender);
+    slackTokens.grantRead(slackReceiver);
+    slackMessagesQueue.grantSendMessages(slackReceiver);
   }
 }
