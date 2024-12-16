@@ -2,17 +2,8 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AwsModulesStack } from '../lib/aws-modules-stack';
-// Temporarily comment out Amplify stack to isolate the issue
-// import { AmplifyStack } from '../lib/amplify-stack';
 
-const app = new cdk.App({
-  context: {
-    '@aws-cdk/aws-s3:createDefaultLoggingPolicy': false,
-    '@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy': false,
-    '@aws-cdk/aws-lambda:createLogGroup': false,
-    '@aws-cdk/aws-lambda:enableFunctionUrlInStackSynthesis': false,
-  }
-});
+const app = new cdk.App();
 
 // Environment configuration
 const env = {
@@ -20,13 +11,20 @@ const env = {
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// Create the main stack with minimal configuration
+// Create the main stack with custom synthesizer
 new AwsModulesStack(app, 'AwsModulesStack', {
   env,
   terminationProtection: false,
+  synthesizer: new cdk.DefaultStackSynthesizer({
+    generateBootstrapVersionRule: false,
+    fileAssetsBucketName: `cdk-${env.account}-${env.region}-assets`,
+    bucketPrefix: '',
+    dockerTagPrefix: '',
+    qualifier: 'custom',
+    cloudFormationExecutionRole: `arn:aws:iam::${env.account}:role/cdk-custom-cfn-exec-role`,
+    deployRoleArn: `arn:aws:iam::${env.account}:role/cdk-custom-deploy-role`,
+    fileAssetPublishingRoleArn: `arn:aws:iam::${env.account}:role/cdk-custom-asset-publishing-role`,
+  }),
 });
-
-// Temporarily comment out Amplify stack
-// new AmplifyStack(app, 'aws-modules-amplify', { env });
 
 app.synth();
