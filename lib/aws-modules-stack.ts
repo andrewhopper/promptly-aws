@@ -7,14 +7,29 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as assets from 'aws-cdk-lib/aws-s3-assets';
 
 export interface AwsModulesStackProps extends cdk.StackProps {}
 
 export class AwsModulesStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: AwsModulesStackProps) {
-    super(scope, id, props);
+    super(scope, id, {
+      ...props,
+      env: props?.env,
+      synthesizer: new cdk.CliCredentialsStackSynthesizer({
+        fileAssetsBucketName: undefined,
+        bucketPrefix: '',
+        dockerTagPrefix: '',
+        qualifier: 'custom',
+      }),
+    });
+
+    // Set CDK context to disable S3 features
+    this.node.setContext('@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy', false);
+    this.node.setContext('@aws-cdk/aws-s3:createDefaultLoggingPolicy', false);
+    this.node.setContext('@aws-cdk/aws-s3:defaultEncryption', false);
+    this.node.setContext('@aws-cdk/aws-s3:disableDefaultLogging', true);
+    this.node.setContext('@aws-cdk/aws-s3:disableAccessLogging', true);
+    this.node.setContext('@aws-cdk/aws-s3:disableServerAccessLogging', true);
 
     // Create a log group for Lambda functions
     const logGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
@@ -22,25 +37,13 @@ export class AwsModulesStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // Create an S3 bucket with minimal configuration
-    const assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
-      versioned: false,
-      publicReadAccess: false,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      serverAccessLogsPrefix: undefined,
-      serverAccessLogsBucket: undefined,
-    });
-
+    // Common Lambda configuration with explicit logging and no asset bundling
     const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
       bundling: {
-        minify: true,
+        minify: false,
         sourceMap: false,
         target: 'es2020',
-        externalModules: ['aws-sdk'],
+        externalModules: ['aws-sdk', '*'],
         forceDockerBundling: false,
         nodeModules: [],
         commandHooks: {
@@ -48,13 +51,15 @@ export class AwsModulesStack extends cdk.Stack {
           beforeInstall: () => [],
           afterBundling: () => [],
         },
+        define: {
+          'process.env.DISABLE_BUNDLING': 'true',
+        },
       },
       logGroup,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
-        ASSETS_BUCKET_NAME: assetsBucket.bucketName,
       },
     };
 
