@@ -54,6 +54,9 @@
     "@aws-cdk/aws-s3:disableObjectLockConfiguration": true,
     "@aws-cdk/core:bootstrapQualifier": "custom",
     "@aws-cdk/core:stackRelativeExports": true,
-    "@aws-cdk/core:experimentalStackSynthesis": true
+    "@aws-cdk/core:experimentalStackSynthesis": true,
+    "@aws-cdk/aws-s3:disableAccessLogging": true,
+    "@aws-cdk/aws-s3:disableServerAccessLogging": true,
+    "@aws-cdk/aws-s3:disableCloudWatchMetrics": true
   }
 }

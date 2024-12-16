@@ -15,6 +15,12 @@ export class AwsModulesStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: AwsModulesStackProps) {
     super(scope, id, props);
 
+    // Create a log group for Lambda functions
+    const logGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
+      retention: logs.RetentionDays.ONE_DAY,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
       bundling: {
         minify: true,
@@ -23,16 +29,13 @@ export class AwsModulesStack extends cdk.Stack {
         externalModules: ['aws-sdk'],
         forceDockerBundling: false,
         nodeModules: [],
-        define: {
-          'process.env.NODE_ENV': JSON.stringify('production'),
-        },
         commandHooks: {
           beforeBundling: () => [],
           beforeInstall: () => [],
           afterBundling: () => [],
         },
       },
-      logRetention: logs.RetentionDays.ONE_DAY,
+      logGroup,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
