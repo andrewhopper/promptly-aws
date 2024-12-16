@@ -1,4 +1,5 @@
-import { Stack, App, CfnOutput, CfnResource, IResolvable } from 'aws-cdk-lib';
+import { Stack, App, CfnOutput } from 'aws-cdk-lib';
+import { CfnBucket } from 'aws-cdk-lib/aws-s3';
 import { CustomStackSynthesizer } from './custom-stack-synthesizer';
 
 interface AwsModulesStackProps {
@@ -15,55 +16,36 @@ export class AwsModulesStack extends Stack {
       synthesizer: new CustomStackSynthesizer()
     });
 
-    // Create S3 bucket using direct CloudFormation template
-    const cfnBucket = new CfnResource(this, 'ContentBucket', {
-      type: 'AWS::S3::Bucket',
-      properties: {
-        AccessControl: 'Private',
-        PublicAccessBlockConfiguration: {
-          BlockPublicAcls: true,
-          BlockPublicPolicy: true,
-          IgnorePublicAcls: true,
-          RestrictPublicBuckets: true
-        },
-        OwnershipControls: {
-          Rules: [{
-            ObjectOwnership: 'BucketOwnerEnforced'
-          }]
-        },
-        BucketEncryption: {
-          ServerSideEncryptionConfiguration: [{
-            ServerSideEncryptionByDefault: {
-              SSEAlgorithm: 'AES256'
-            }
-          }]
-        },
-        VersioningConfiguration: {
-          Status: 'Enabled'
-        }
+    // Create S3 bucket using CfnBucket (L1 construct)
+    const cfnBucket = new CfnBucket(this, 'ContentBucket', {
+      accessControl: 'Private',
+      publicAccessBlockConfiguration: {
+        blockPublicAcls: true,
+        blockPublicPolicy: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+      },
+      ownershipControls: {
+        rules: [{
+          objectOwnership: 'BucketOwnerEnforced'
+        }]
+      },
+      bucketEncryption: {
+        serverSideEncryptionConfiguration: [{
+          serverSideEncryptionByDefault: {
+            sseAlgorithm: 'AES256'
+          }
+        }]
+      },
+      versioningConfiguration: {
+        status: 'Enabled'
       }
     });
 
-    // Export bucket name
+    // Add the output
     new CfnOutput(this, 'ContentBucketName', {
       value: cfnBucket.ref,
       exportName: 'ContentBucketName'
     });
-  }
-
-  // Override bind method to prevent implicit bucket creation
-  public bind(): IResolvable {
-    return {
-      creationStack: [],
-      resolve: () => ({
-        s3Bucket: undefined,
-        s3ObjectKey: undefined,
-        assetHash: 'NONE',
-        bucketName: 'NONE',
-        objectKey: 'NONE',
-        packaging: 'none',
-        sourceHash: 'NONE'
-      })
-    };
   }
 }
