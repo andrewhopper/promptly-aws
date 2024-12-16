@@ -7,12 +7,22 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 
 export interface AwsModulesStackProps extends cdk.StackProps {}
 
 export class AwsModulesStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: AwsModulesStackProps) {
-    super(scope, id, props);
+    super(scope, id, {
+      ...props,
+      synthesizer: new cdk.DefaultStackSynthesizer({
+        generateBootstrapVersionRule: false,
+        fileAssetsBucketName: `cdk-${process.env.CDK_DEFAULT_ACCOUNT}-assets`,
+        bucketPrefix: '',
+        dockerTagPrefix: '',
+        qualifier: 'custom',
+      }),
+    });
 
     const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
       bundling: {

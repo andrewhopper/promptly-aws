@@ -51,6 +51,9 @@
     "@aws-cdk/aws-s3:disableTransferAcceleration": true,
     "@aws-cdk/aws-s3:disableIntelligentTiering": true,
     "@aws-cdk/aws-s3:disableBucketPolicyUpdates": true,
-    "@aws-cdk/aws-s3:disableObjectLockConfiguration": true
+    "@aws-cdk/aws-s3:disableObjectLockConfiguration": true,
+    "@aws-cdk/core:bootstrapQualifier": "custom",
+    "@aws-cdk/core:stackRelativeExports": true,
+    "@aws-cdk/core:experimentalStackSynthesis": true
   }
 }
