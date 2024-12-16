@@ -1,6 +1,6 @@
 import { Stack, App, CfnOutput } from 'aws-cdk-lib';
 import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
-import { CfnBucket } from 'aws-cdk-lib/aws-s3';
+import { CfnBucket, BucketAccessControl } from 'aws-cdk-lib/aws-s3';
 
 export class AwsModulesStack extends Stack {
   constructor(scope: App, id: string, props?: any) {
@@ -11,7 +11,7 @@ export class AwsModulesStack extends Stack {
 
     // Create S3 bucket with explicit ACL configuration
     const contentBucket = new CfnBucket(this, 'ContentBucket', {
-      accessControl: 'Private',
+      accessControl: BucketAccessControl.PRIVATE,
       versioningConfiguration: {
         status: 'Enabled'
       },
@@ -32,6 +32,10 @@ export class AwsModulesStack extends Stack {
         rules: [{
           objectOwnership: 'BucketOwnerEnforced'
         }]
+      },
+      loggingConfiguration: {
+        destinationBucketName: '',
+        logFilePrefix: ''
       }
     });
 
