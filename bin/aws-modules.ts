@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
-import * as cdk from 'aws-cdk-lib';
+import { App } from 'aws-cdk-lib';
 import { AwsModulesStack } from '../lib/aws-modules-stack';
 
-const app = new cdk.App({
+const app = new App({
   context: {
     '@aws-cdk/core:newStyleStackSynthesis': false,
     '@aws-cdk/core:bootstrapQualifier': 'minimal',
