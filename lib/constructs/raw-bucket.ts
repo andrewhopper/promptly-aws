@@ -33,10 +33,6 @@ export class RawBucket extends Construct {
             ObjectOwnership: 'BucketOwnerEnforced'
           }]
         },
-        LoggingConfiguration: {
-          DestinationBucketName: '',
-          LogFilePrefix: ''
-        },
         BucketEncryption: {
           ServerSideEncryptionConfiguration: [{
             ServerSideEncryptionByDefault: {
