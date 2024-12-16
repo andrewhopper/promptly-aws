@@ -54,7 +54,7 @@ const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
 const lambdaClient = new LambdaClient({});
 
 // Helper function to create AudioStream from buffer
-async function* createAudioStream(buffer: Buffer): AsyncGenerator<AudioEvent> {
+async function* createAudioStream(buffer: Buffer): AsyncGenerator<{ AudioEvent: { AudioChunk: Buffer } }> {
   const readable = new Readable({
     read() {
       this.push(buffer);
@@ -64,10 +64,10 @@ async function* createAudioStream(buffer: Buffer): AsyncGenerator<AudioEvent> {
 
   for await (const chunk of readable) {
     yield {
-      AudioStream: {
+      AudioEvent: {
         AudioChunk: chunk instanceof Buffer ? chunk : Buffer.from(chunk)
       }
-    } as AudioEvent;
+    };
   }
 }
 

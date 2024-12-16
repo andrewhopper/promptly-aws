@@ -1,9 +1,7 @@
-/** @type {import('next').NextConfig} */
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 const nextConfig = {
-  output: 'standalone',
-  images: {
-    unoptimized: true,
-  },
+/* config options here */
 };
-
-module.exports = nextConfig;
+exports.default = nextConfig;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoibmV4dC5jb25maWcuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyJuZXh0LmNvbmZpZy50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiOztBQUVBLE1BQU0sVUFBVSxHQUFlO0FBQzdCLHlCQUF5QjtDQUMxQixDQUFDO0FBRUYsa0JBQWUsVUFBVSxDQUFDIiwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHR5cGUgeyBOZXh0Q29uZmlnIH0gZnJvbSBcIm5leHRcIjtcblxuY29uc3QgbmV4dENvbmZpZzogTmV4dENvbmZpZyA9IHtcbiAgLyogY29uZmlnIG9wdGlvbnMgaGVyZSAqL1xufTtcblxuZXhwb3J0IGRlZmF1bHQgbmV4dENvbmZpZztcbiJdfQ==

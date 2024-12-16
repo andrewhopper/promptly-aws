@@ -4,7 +4,12 @@ import * as cdk from 'aws-cdk-lib';
 import { AwsModulesStack } from '../lib/aws-modules-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
 
-const app = new cdk.App();
+const app = new cdk.App({
+  context: {
+    '@aws-cdk/aws-s3:createDefaultLoggingPolicy': false,
+    '@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy': false,
+  }
+});
 
 // Environment configuration
 const env = {
@@ -12,7 +17,7 @@ const env = {
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// Create the main stack
+// Create the main stack with minimal configuration
 const mainStack = new AwsModulesStack(app, 'AwsModulesStack', { env });
 
 // Create the Amplify stack for frontend hosting
