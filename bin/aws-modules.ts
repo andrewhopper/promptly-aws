@@ -14,7 +14,8 @@ const app = new App({
     '@aws-cdk/aws-s3:disableAccessLogging': true,
     '@aws-cdk/aws-s3:disableServerAccessLogging': true,
     '@aws-cdk/aws-cloudwatch-logs:disableCloudWatchLogs': true,
-    '@aws-cdk/core:target-partitions': ['aws']
+    '@aws-cdk/core:target-partitions': ['aws'],
+    '@aws-cdk/core:bootstrapQualifier': 'minimal'
   },
   analyticsReporting: false,
   treeMetadata: false
