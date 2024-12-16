@@ -7,6 +7,12 @@ process.env.CDK_DISABLE_ASSET_BUNDLING = 'true';
 process.env.CDK_NEW_BOOTSTRAP = '1';
 process.env.CDK_DISABLE_STACK_TRACE = 'true';
 process.env.CDK_DISABLE_LOGGING = 'true';
+process.env.CDK_DISABLE_VERSION_CHECK = 'true';
+process.env.CDK_DISABLE_ASSET_STAGING_CONTEXT = 'true';
+process.env.CDK_BLOCK_ASSET_STAGING = 'true';
+process.env.CDK_NO_ASSET_BUCKET = 'true';
+process.env.CDK_NO_STAGING = 'true';
+process.env.CDK_SYNTH_NO_VALIDATION = 'true';
 
 import 'source-map-support/register';
 import { App } from 'aws-cdk-lib';
@@ -30,7 +36,11 @@ const app = new App({
     '@aws-cdk/core:disableVersionCheck': true,
     '@aws-cdk/core:disableCloudFormationLogs': true,
     '@aws-cdk/core:disableStackTraces': true,
-    '@aws-cdk/core:disableMetricsCollection': true
+    '@aws-cdk/core:disableMetricsCollection': true,
+    '@aws-cdk/core:disableAllLogs': true,
+    '@aws-cdk/core:disableAllMetrics': true,
+    '@aws-cdk/core:disableAllTracing': true,
+    '@aws-cdk/core:disableAllAssets': true
   },
   analyticsReporting: false,
   treeMetadata: false

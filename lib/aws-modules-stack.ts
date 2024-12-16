@@ -9,6 +9,31 @@ interface AwsModulesStackProps extends StackProps {
   };
 }
 
+// Base stack class that prevents automatic bucket creation
+class NoAssetStack extends Stack {
+  constructor(scope: Construct, id: string, props?: StackProps) {
+    super(scope, id, {
+      ...props,
+      // Use minimal synthesizer configuration
+      synthesizer: new CustomStackSynthesizer()
+    });
+
+    // Override methods that might create buckets
+    const stack = this as any;
+    stack.templateOptions = {
+      ...stack.templateOptions,
+      description: 'Stack with no automatic bucket creation',
+      transforms: [],
+      metadata: {}
+    };
+  }
+
+  // Override asset methods
+  protected allocateLogicalId(): string {
+    return '';
+  }
+}
+
 // Create a raw bucket construct that doesn't use high-level features
 class RawBucket extends Construct {
   public readonly bucketName: string;
@@ -16,6 +41,7 @@ class RawBucket extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
+    // Use L1 construct directly without any high-level features
     const bucket = new s3.CfnBucket(this, 'Bucket', {
       accessControl: 'Private',
       publicAccessBlockConfiguration: {
@@ -45,12 +71,10 @@ class RawBucket extends Construct {
   }
 }
 
-export class AwsModulesStack extends Stack {
+// Use NoAssetStack instead of Stack
+export class AwsModulesStack extends NoAssetStack {
   constructor(scope: App, id: string, props?: AwsModulesStackProps) {
-    super(scope, id, {
-      ...props,
-      synthesizer: new CustomStackSynthesizer()
-    });
+    super(scope, id, props);
 
     // Create bucket using raw construct
     const bucket = new RawBucket(this, 'ContentBucket');

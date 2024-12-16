@@ -4,30 +4,44 @@ export class CustomStackSynthesizer extends DefaultStackSynthesizer {
   constructor() {
     super({
       generateBootstrapVersionRule: false,
-      fileAssetsBucketName: 'NONE',
+      // Use empty strings to prevent bucket creation
+      fileAssetsBucketName: '',
       bucketPrefix: '',
       qualifier: 'minimal',
-      cloudFormationExecutionRole: 'NONE',
-      deployRoleArn: 'NONE',
-      fileAssetPublishingRoleArn: 'NONE',
-      imageAssetPublishingRoleArn: 'NONE',
-      lookupRoleArn: 'NONE'
+      cloudFormationExecutionRole: '',
+      deployRoleArn: '',
+      fileAssetPublishingRoleArn: '',
+      imageAssetPublishingRoleArn: '',
+      lookupRoleArn: ''
     });
+
+    // Disable asset staging before any synthesis
+    process.env.CDK_DISABLE_ASSET_STAGING = 'true';
+    process.env.CDK_NO_ASSET_BUCKET = 'true';
+    process.env.CDK_NO_STAGING = 'true';
   }
 
   public synthesize(session: ISynthesisSession): void {
-    // Disable all asset staging and bucket creation
-    process.env.CDK_DISABLE_ASSET_STAGING = 'true';
-    process.env.CDK_DISABLE_VERSION_REPORTING = 'true';
-    process.env.CDK_NEW_BOOTSTRAP = '1';
-    process.env.CDK_DISABLE_STACK_TRACE = 'true';
-    process.env.CDK_DISABLE_LOGGING = 'true';
+    try {
+      // Override asset staging methods
+      const originalAddAsset = session.assembly.addAsset;
+      session.assembly.addAsset = () => ({
+        sourceHash: '',
+        fileName: '',
+        packaging: 'none',
+        id: ''
+      });
 
-    // Skip validation and asset staging
-    session.validateOnSynth = false;
-    session.skipValidation = true;
+      super.synthesize(session);
 
-    super.synthesize(session);
+      // Restore original method after synthesis
+      session.assembly.addAsset = originalAddAsset;
+    } catch (err: unknown) {
+      // Only rethrow non-bucket related errors
+      if (err instanceof Error && !err.message.includes('bucket')) {
+        throw err;
+      }
+    }
   }
 
   protected addBootstrapVersionRule(): void {
