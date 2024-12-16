@@ -13,16 +13,7 @@ export interface AwsModulesStackProps extends cdk.StackProps {}
 
 export class AwsModulesStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: AwsModulesStackProps) {
-    super(scope, id, {
-      ...props,
-      synthesizer: new cdk.DefaultStackSynthesizer({
-        generateBootstrapVersionRule: false,
-        fileAssetsBucketName: `cdk-${process.env.CDK_DEFAULT_ACCOUNT}-assets`,
-        bucketPrefix: '',
-        dockerTagPrefix: '',
-        qualifier: 'custom',
-      }),
-    });
+    super(scope, id, props);
 
     const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
       bundling: {
@@ -31,6 +22,15 @@ export class AwsModulesStack extends cdk.Stack {
         target: 'es2020',
         externalModules: ['aws-sdk'],
         forceDockerBundling: false,
+        nodeModules: [],
+        define: {
+          'process.env.NODE_ENV': JSON.stringify('production'),
+        },
+        commandHooks: {
+          beforeBundling: () => [],
+          beforeInstall: () => [],
+          afterBundling: () => [],
+        },
       },
       logRetention: logs.RetentionDays.ONE_DAY,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
