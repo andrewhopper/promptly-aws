@@ -16,7 +16,17 @@ export class CustomStackSynthesizer extends DefaultStackSynthesizer {
   }
 
   public synthesize(session: ISynthesisSession): void {
-    // Let the environment variables be set by bin/aws-modules.ts
+    // Disable all asset staging and bucket creation
+    process.env.CDK_DISABLE_ASSET_STAGING = 'true';
+    process.env.CDK_DISABLE_VERSION_REPORTING = 'true';
+    process.env.CDK_NEW_BOOTSTRAP = '1';
+    process.env.CDK_DISABLE_STACK_TRACE = 'true';
+    process.env.CDK_DISABLE_LOGGING = 'true';
+
+    // Skip validation and asset staging
+    session.validateOnSynth = false;
+    session.skipValidation = true;
+
     super.synthesize(session);
   }
 

@@ -1,22 +1,22 @@
-import { Stack, App, CfnOutput, aws_s3 as s3 } from 'aws-cdk-lib';
+import { Stack, App, CfnOutput, aws_s3 as s3, StackProps } from 'aws-cdk-lib';
 import { CustomStackSynthesizer } from './custom-stack-synthesizer';
+import { Construct } from 'constructs';
 
-interface AwsModulesStackProps {
+interface AwsModulesStackProps extends StackProps {
   env?: {
     account?: string;
     region?: string;
   };
 }
 
-export class AwsModulesStack extends Stack {
-  constructor(scope: App, id: string, props?: AwsModulesStackProps) {
-    super(scope, id, {
-      ...props,
-      synthesizer: new CustomStackSynthesizer()
-    });
+// Create a raw bucket construct that doesn't use high-level features
+class RawBucket extends Construct {
+  public readonly bucketName: string;
 
-    // Create S3 bucket using CfnBucket (L1 construct)
-    const cfnBucket = new s3.CfnBucket(this, 'ContentBucket', {
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
+
+    const bucket = new s3.CfnBucket(this, 'Bucket', {
       accessControl: 'Private',
       publicAccessBlockConfiguration: {
         blockPublicAcls: true,
@@ -38,14 +38,26 @@ export class AwsModulesStack extends Stack {
       },
       versioningConfiguration: {
         status: 'Enabled'
-      },
-      // Explicitly disable logging to prevent automatic log delivery setup
-      loggingConfiguration: undefined
+      }
     });
+
+    this.bucketName = bucket.ref;
+  }
+}
+
+export class AwsModulesStack extends Stack {
+  constructor(scope: App, id: string, props?: AwsModulesStackProps) {
+    super(scope, id, {
+      ...props,
+      synthesizer: new CustomStackSynthesizer()
+    });
+
+    // Create bucket using raw construct
+    const bucket = new RawBucket(this, 'ContentBucket');
 
     // Add the output
     new CfnOutput(this, 'ContentBucketName', {
-      value: cfnBucket.ref,
+      value: bucket.bucketName,
       exportName: 'ContentBucketName'
     });
   }
