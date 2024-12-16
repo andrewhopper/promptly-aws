@@ -74,18 +74,15 @@ export const handler = async (event: ImageGenerationEvent): Promise<{ statusCode
     const tonePrompt = getTonePromptPrefix(tone) + prompt;
 
     // Generate image using Bedrock
-    const modelParams = {
-      modelId: 'stability.stable-diffusion-xl',
-      input: {
+    const command = new InvokeModelCommand({
+      modelId: 'stability.stable-diffusion-xl-v1',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
         text_prompts: [{ text: tonePrompt }],
         cfg_scale: 10,
         steps: 50,
-      }
-    };
-
-    const command = new InvokeModelCommand({
-      modelId: modelParams.modelId,
-      body: JSON.stringify(modelParams.input)
+      }),
     });
 
     const response = await bedrockClient.send(command);
