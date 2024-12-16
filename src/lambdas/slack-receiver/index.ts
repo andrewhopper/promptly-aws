@@ -1,6 +1,7 @@
 import { Handler } from 'aws-lambda';
 import { App, LogLevel } from '@slack/bolt';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 interface SlackEvent {
   type: string;
@@ -45,6 +46,7 @@ interface SlackError extends Error {
 }
 
 const secretsManager = new SecretsManagerClient({});
+const sqs = new SQSClient({});
 let slackApp: App | null = null;
 
 async function initializeSlackApp() {
@@ -100,7 +102,7 @@ function processSlackEvent(event: SlackEvent): ProcessedMessage {
 export const handler: Handler = async (event: SlackEvent) => {
   try {
     // Initialize Slack app
-    await initializeSlackApp();
+    const app = await initializeSlackApp();
 
     // Verify event type
     if (!event.type || !event.event || !event.event.type) {
@@ -111,7 +113,23 @@ export const handler: Handler = async (event: SlackEvent) => {
     if (event.event.type === 'message') {
       const processedMessage = processSlackEvent(event);
 
-      // Return processed message for SQS queue integration
+      // Send message to SQS if queue URL is configured
+      if (process.env.QUEUE_URL) {
+        await sqs.send(new SendMessageCommand({
+          QueueUrl: process.env.QUEUE_URL,
+          MessageBody: JSON.stringify(processedMessage),
+        }));
+
+        // Acknowledge receipt if Slack app is available
+        if (app) {
+          await app.client.chat.postMessage({
+            channel: processedMessage.channel,
+            text: 'Message received and queued for processing!',
+            thread_ts: processedMessage.threadTs,
+          });
+        }
+      }
+
       return {
         statusCode: 200,
         body: JSON.stringify({
