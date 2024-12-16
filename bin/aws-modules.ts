@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+
+// Set CDK environment variables before any imports
+process.env.CDK_DISABLE_ASSET_STAGING = 'true';
+process.env.CDK_DISABLE_VERSION_REPORTING = 'true';
+process.env.CDK_DISABLE_ASSET_BUNDLING = 'true';
+process.env.CDK_NEW_BOOTSTRAP = '1';
+process.env.CDK_DISABLE_STACK_TRACE = 'true';
+process.env.CDK_DISABLE_LOGGING = 'true';
+
 import 'source-map-support/register';
 import { App } from 'aws-cdk-lib';
 import { AwsModulesStack } from '../lib/aws-modules-stack';

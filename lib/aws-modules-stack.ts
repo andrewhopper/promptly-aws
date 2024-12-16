@@ -1,5 +1,4 @@
-import { Stack, App, CfnOutput } from 'aws-cdk-lib';
-import { CfnBucket } from 'aws-cdk-lib/aws-s3';
+import { Stack, App, CfnOutput, aws_s3 as s3 } from 'aws-cdk-lib';
 import { CustomStackSynthesizer } from './custom-stack-synthesizer';
 
 interface AwsModulesStackProps {
@@ -17,7 +16,7 @@ export class AwsModulesStack extends Stack {
     });
 
     // Create S3 bucket using CfnBucket (L1 construct)
-    const cfnBucket = new CfnBucket(this, 'ContentBucket', {
+    const cfnBucket = new s3.CfnBucket(this, 'ContentBucket', {
       accessControl: 'Private',
       publicAccessBlockConfiguration: {
         blockPublicAcls: true,
