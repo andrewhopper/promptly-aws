@@ -1,4 +1,4 @@
-import { Stack, App, CfnOutput, DefaultStackSynthesizer } from 'aws-cdk-lib';
+import { Stack, App, CfnOutput } from 'aws-cdk-lib';
 import { RawBucket } from './constructs/raw-bucket';
 
 interface AwsModulesStackProps {
@@ -10,14 +10,10 @@ interface AwsModulesStackProps {
 
 export class AwsModulesStack extends Stack {
   constructor(scope: App, id: string, props?: AwsModulesStackProps) {
+    // Prevent automatic bucket creation by setting synthesizer to undefined
     super(scope, id, {
       ...props,
-      synthesizer: new DefaultStackSynthesizer({
-        generateBootstrapVersionRule: false,
-        fileAssetsBucketName: 'NONE',
-        bucketPrefix: '',
-        qualifier: 'minimal'
-      })
+      synthesizer: undefined
     });
 
     // Create S3 bucket using raw CloudFormation construct
