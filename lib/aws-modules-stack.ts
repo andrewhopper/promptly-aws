@@ -154,8 +154,8 @@ export class AwsModulesStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_18_X,
       environment: {
         DYNAMODB_TABLE: userCheckInsTable.tableName,
-        BEDROCK_AGENT_ID: process.env.BEDROCK_AGENT_ID || 'your-agent-id',
-        BEDROCK_AGENT_ALIAS_ID: process.env.BEDROCK_AGENT_ALIAS_ID || 'your-agent-alias-id'
+        BEDROCK_AGENT_ID: process.env.BEDROCK_AGENT_ID || '',
+        BEDROCK_AGENT_ALIAS_ID: process.env.BEDROCK_AGENT_ALIAS_ID || '',
       },
       timeout: cdk.Duration.minutes(1),
       memorySize: 256,

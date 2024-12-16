@@ -17,7 +17,7 @@
     ]
   },
   "context": {
-    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/core:newStyleStackSynthesis": false,
     "@aws-cdk/core:enableAssetBucketVersioning": false,
     "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": false,
     "@aws-cdk/aws-s3:createDefaultLoggingPolicy": false,
