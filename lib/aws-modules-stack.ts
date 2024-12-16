@@ -6,7 +6,6 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
-import * as logs from 'aws-cdk-lib/aws-logs';
 
 export interface AwsModulesStackProps extends cdk.StackProps {}
 
@@ -27,14 +26,7 @@ export class AwsModulesStack extends cdk.Stack {
     this.node.setContext('@aws-cdk/core:newStyleStackSynthesis', false);
     this.node.setContext('@aws-cdk/aws-cloudwatch-logs:disableCloudWatchLogs', true);
 
-    // Create a log group for Lambda functions with minimal configuration
-    const logGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
-      retention: logs.RetentionDays.ONE_DAY,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      logGroupClass: logs.LogGroupClass.STANDARD,
-    });
-
-    // Common Lambda configuration with explicit logging and no asset bundling
+    // Common Lambda configuration with minimal logging
     const commonLambdaProps: cdk.aws_lambda_nodejs.NodejsFunctionProps = {
       bundling: {
         minify: false,
@@ -52,8 +44,6 @@ export class AwsModulesStack extends cdk.Stack {
           'process.env.DISABLE_BUNDLING': 'true',
         },
       },
-      logRetention: logs.RetentionDays.ONE_DAY,
-      logGroup,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
