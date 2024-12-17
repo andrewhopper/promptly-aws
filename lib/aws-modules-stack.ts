@@ -33,5 +33,80 @@ export class AwsModulesStack extends cdk.Stack {
       value: contentBucket.bucketName,
       exportName: 'ContentBucketName'
     });
+    // Add Bedrock permissions
+    bedrockLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'bedrock:InvokeModel',
+      ],
+      resources: ['*'],
+    }));
+
+    // Add S3 permissions for Bedrock Lambda
+    generatedImagesBucket.grantReadWrite(bedrockLambda);
+
+    // Create Secrets Manager secret for Slack credentials
+    const slackSecret = new secretsmanager.Secret(this, 'SlackCredentials', {
+      secretName: 'slack/credentials',
+      description: 'Slack API credentials for bot',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          SLACK_BOT_TOKEN: '',
+          SLACK_APP_TOKEN: '',
+          SLACK_SIGNING_SECRET: '',
+        }),
+        generateStringKey: 'dummy',
+      },
+    });
+
+    // Create SQS queue for Slack messages
+    const slackMessagesQueue = new sqs.Queue(this, 'SlackMessagesQueue', {
+      queueName: 'slack-messages-queue',
+      visibilityTimeout: cdk.Duration.seconds(30),
+      retentionPeriod: cdk.Duration.days(14),
+    });
+
+    // Slack Receiver Lambda
+    const slackReceiverLambda = new nodejs.NodejsFunction(this, 'SlackReceiverFunction', {
+      entry: 'src/lambdas/slack-receiver/index.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        SLACK_SECRET_ARN: slackSecret.secretArn,
+        QUEUE_URL: slackMessagesQueue.queueUrl,
+      },
+    });
+
+    // Add SQS permissions to Slack Receiver Lambda
+    slackReceiverLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sqs:SendMessage'],
+      resources: [slackMessagesQueue.queueArn],
+    }));
+
+    // Add Secrets Manager permissions to Slack Receiver Lambda
+    slackReceiverLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [slackSecret.secretArn],
+    }));
+
+    // Slack message sender Lambda
+    const slackSender = new nodejs.NodejsFunction(this, 'SlackSenderFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: path.join(__dirname, '../src/lambdas/slack-sender/index.ts'),
+      handler: 'handler',
+      environment: {
+        SLACK_SECRET_ARN: slackSecret.secretArn,
+        QUEUE_URL: slackMessagesQueue.queueUrl,
+      },
+    });
+
+    // Grant permissions
+    slackSecret.grantRead(slackSender);
+    slackSecret.grantRead(slackReceiverLambda);
+    slackMessagesQueue.grantSendMessages(slackReceiverLambda);
+    slackMessagesQueue.grantConsumeMessages(slackSender);
   }
 }
