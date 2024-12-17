@@ -60,6 +60,7 @@
     "@aws-sdk/util-dynamodb": "^3.712.0",
     "@slack/bolt": "^3.22.0",
     "aws-amplify": "^6.0.0",
+    "aws-cdk-lib": "2.173.1",
     "constructs": "10.3.0",
     "next": "^14.0.0",
     "react": "^18.2.0",
