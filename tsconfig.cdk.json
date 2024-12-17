@@ -1,11 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",
-    "lib": [
-      "es2020",
-      "dom"
-    ],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "lib": ["es2020"],
     "declaration": true,
     "strict": true,
     "noImplicitAny": true,
@@ -20,12 +18,20 @@
     "inlineSources": true,
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "outDir": "dist",
     "esModuleInterop": true,
-    "typeRoots": [
-      "./node_modules/@types"
-    ]
+    "allowSyntheticDefaultImports": true,
+    "useDefineForClassFields": false
   },
+  "include": [
+    "bin/**/*.ts",
+    "lib/**/*.ts"
+  ],
   "exclude": [
+    "frontend/**/*",
+    "src/**/*",
     "node_modules",
     "cdk.out"
   ]
