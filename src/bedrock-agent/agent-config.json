@@ -1,0 +1,133 @@
+{
+  "name": "CheckInAgent",
+  "description": "An agent that handles voice check-ins and generates personalized responses",
+  "idleSessionTTLInSeconds": 300,
+  "instruction": "You are a helpful assistant that processes voice check-ins. When a user checks in, acknowledge their check-in, ask relevant follow-up questions if needed, and provide a friendly response. Keep responses concise and natural-sounding for voice interaction. Adapt your tone based on user preferences (serious, funny, or stern).",
+  "promptOverrides": [
+    {
+      "promptType": "KNOWLEDGE_BASE",
+      "promptState": "ENABLED",
+      "basePrompt": "As a check-in assistant, help users log their check-ins and provide appropriate responses. Consider the user's preferred tone (serious, funny, or stern) and maintain a conversational style appropriate for voice interaction."
+    }
+  ],
+  "knowledgeBases": [],
+  "actionGroups": [
+    {
+      "actionGroupName": "CheckInActions",
+      "actionGroupExecutor": "LAMBDA",
+      "actionGroupVersion": "1",
+      "apiSchema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Check-in API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/check-in": {
+            "post": {
+              "summary": "Log a user check-in",
+              "operationId": "logCheckIn",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "description": "The unique identifier for the user"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "The check-in message from the user"
+                        },
+                        "preferences": {
+                          "type": "object",
+                          "properties": {
+                            "tone": {
+                              "type": "string",
+                              "enum": ["serious", "funny", "stern"],
+                              "description": "The preferred tone for responses"
+                            }
+                          }
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "The time of the check-in"
+                        }
+                      },
+                      "required": ["userId", "message"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Check-in logged successfully",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "success": {
+                            "type": "boolean"
+                          },
+                          "response": {
+                            "type": "string",
+                            "description": "The agent's response message"
+                          },
+                          "content": {
+                            "type": "object",
+                            "properties": {
+                              "image": {
+                                "type": "string",
+                                "description": "URL to the generated image"
+                              },
+                              "smsMessage": {
+                                "type": "string",
+                                "description": "Generated SMS message"
+                              },
+                              "phoneCallScript": {
+                                "type": "string",
+                                "description": "Generated phone call script"
+                              },
+                              "emailSubject": {
+                                "type": "string",
+                                "description": "Generated email subject"
+                              },
+                              "emailBody": {
+                                "type": "string",
+                                "description": "Generated email body"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "400": {
+                  "description": "Invalid request",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "error": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

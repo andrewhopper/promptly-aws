@@ -1,0 +1,10 @@
+{
+  "@aws-cdk/core:enableAutoValidation": false,
+  "@aws-cdk/aws-s3:createDefaultLoggingPolicy": false,
+  "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": false,
+  "@aws-cdk/aws-s3:defaultEncryption": false,
+  "@aws-cdk/aws-s3:crossRegionReplicationDefaultRole": false,
+  "@aws-cdk/aws-s3:bucketKeyEnabled": false,
+  "@aws-cdk/aws-s3:enableDefaultStyleMultiAzNaming": false,
+  "@aws-cdk/aws-s3:keepNotificationInImportedBucket": false
+}
