@@ -2,48 +2,20 @@
 
 // Set CDK environment variables before any imports
 process.env.CDK_DISABLE_ASSET_STAGING = 'true';
-process.env.CDK_DISABLE_VERSION_REPORTING = 'true';
-process.env.CDK_DISABLE_ASSET_BUNDLING = 'true';
 process.env.CDK_NEW_BOOTSTRAP = '1';
-process.env.CDK_DISABLE_STACK_TRACE = 'true';
-process.env.CDK_DISABLE_LOGGING = 'true';
-process.env.CDK_DISABLE_VERSION_CHECK = 'true';
-process.env.CDK_DISABLE_ASSET_STAGING_CONTEXT = 'true';
-process.env.CDK_BLOCK_ASSET_STAGING = 'true';
-process.env.CDK_NO_ASSET_BUCKET = 'true';
-process.env.CDK_NO_STAGING = 'true';
-process.env.CDK_SYNTH_NO_VALIDATION = 'true';
 
 import 'source-map-support/register';
-import { App } from 'aws-cdk-lib';
+import * as cdk from 'aws-cdk-lib';
 import { AwsModulesStack } from '../lib/aws-modules-stack';
 
-// Initialize app with minimal configuration and all S3 features disabled
-const app = new App({
+// Initialize app with minimal configuration
+const app = new cdk.App({
   context: {
     '@aws-cdk/core:newStyleStackSynthesis': true,
     '@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy': false,
     '@aws-cdk/aws-s3:createDefaultLoggingPolicy': false,
-    '@aws-cdk/aws-s3:defaultEncryption': false,
-    '@aws-cdk/aws-s3:disableDefaultLogging': true,
-    '@aws-cdk/aws-s3:disableAccessLogging': true,
-    '@aws-cdk/aws-s3:disableServerAccessLogging': true,
-    '@aws-cdk/aws-cloudwatch-logs:disableCloudWatchLogs': true,
-    '@aws-cdk/core:target-partitions': ['aws'],
-    '@aws-cdk/core:bootstrapQualifier': 'minimal',
-    '@aws-cdk/core:disableAssetBucketCreation': true,
-    '@aws-cdk/core:suppressAssetBucketCreation': true,
-    '@aws-cdk/core:disableVersionCheck': true,
-    '@aws-cdk/core:disableCloudFormationLogs': true,
-    '@aws-cdk/core:disableStackTraces': true,
-    '@aws-cdk/core:disableMetricsCollection': true,
-    '@aws-cdk/core:disableAllLogs': true,
-    '@aws-cdk/core:disableAllMetrics': true,
-    '@aws-cdk/core:disableAllTracing': true,
-    '@aws-cdk/core:disableAllAssets': true
-  },
-  analyticsReporting: false,
-  treeMetadata: false
+    '@aws-cdk/core:bootstrapQualifier': 'minimal'
+  }
 });
 
 new AwsModulesStack(app, 'AwsModulesStack', {

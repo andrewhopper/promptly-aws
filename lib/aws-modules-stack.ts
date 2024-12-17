@@ -1,52 +1,36 @@
-import { Stack, App, CfnOutput, StackProps } from 'aws-cdk-lib';
+import * as cdk from 'aws-cdk-lib';
 import { CustomStackSynthesizer } from './custom-stack-synthesizer';
 import { Construct } from 'constructs';
-import { RawBucket } from './constructs/raw-bucket';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 
-interface AwsModulesStackProps extends StackProps {
+interface AwsModulesStackProps extends cdk.StackProps {
   env?: {
     account?: string;
     region?: string;
   };
 }
 
-// Base stack class that prevents automatic bucket creation
-class NoAssetStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+export class AwsModulesStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: AwsModulesStackProps) {
     super(scope, id, {
       ...props,
       synthesizer: new CustomStackSynthesizer()
     });
 
-    const stack = this as any;
-    stack.templateOptions = {
-      ...stack.templateOptions,
-      description: 'Stack with no automatic bucket creation',
-      transforms: [],
-      metadata: {},
-      assets: {
-        fileAssets: [],
-        dockerImages: []
-      }
-    };
-  }
-
-  protected allocateLogicalId(): string {
-    return '';
-  }
-}
-
-// Use NoAssetStack instead of Stack
-export class AwsModulesStack extends NoAssetStack {
-  constructor(scope: App, id: string, props?: AwsModulesStackProps) {
-    super(scope, id, props);
-
-    const bucket = new RawBucket(this, 'ContentBucket', {
-      bucketName: `${Stack.of(this).stackName.toLowerCase()}-content-${Stack.of(this).account}-${Stack.of(this).region}`
+    // Create content bucket directly using CDK's Bucket construct
+    const contentBucket = new s3.Bucket(this, 'ContentBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      versioned: true,
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      autoDeleteObjects: false
     });
 
-    new CfnOutput(this, 'ContentBucketName', {
-      value: bucket.bucketName,
+    // Export bucket name
+    new cdk.CfnOutput(this, 'ContentBucketName', {
+      value: contentBucket.bucketName,
       exportName: 'ContentBucketName'
     });
   }
