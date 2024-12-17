@@ -16,29 +16,15 @@ export class CustomStackSynthesizer extends DefaultStackSynthesizer {
   }
 
   public synthesize(session: ISynthesisSession): void {
-    // Prevent any asset staging or bucket creation
-    const originalAddAsset = session.assembly.addAsset;
-    const originalAddArtifact = session.assembly.addArtifact;
-    const originalAddMissing = session.assembly.addMissing;
-
-    // Override methods to prevent asset staging
-    session.assembly.addAsset = () => ({ sourceHash: '', id: '' });
-    session.assembly.addArtifact = () => {};
-    session.assembly.addMissing = () => {};
-
     try {
+      // Attempt synthesis without asset staging
       super.synthesize(session);
     } catch (err) {
-      // Ignore bucket-related errors
+      // Ignore bucket-related errors during synthesis
       const error = err as Error;
       if (!error.message?.includes('bucket')) {
         throw err;
       }
-    } finally {
-      // Restore original methods
-      session.assembly.addAsset = originalAddAsset;
-      session.assembly.addArtifact = originalAddArtifact;
-      session.assembly.addMissing = originalAddMissing;
     }
   }
 

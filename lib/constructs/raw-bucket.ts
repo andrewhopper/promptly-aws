@@ -42,7 +42,16 @@ export class RawBucket extends Construct {
         },
         VersioningConfiguration: {
           Status: 'Enabled'
-        }
+        },
+        // Explicitly disable logging to prevent automatic log delivery setup
+        LoggingConfiguration: {
+          DestinationBucketName: '',
+          LogFilePrefix: ''
+        },
+        // Disable automatic bucket policy updates
+        BucketPolicy: null,
+        // Disable notifications to prevent SQS/SNS creation
+        NotificationConfiguration: null
       }
     });
 
