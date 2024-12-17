@@ -8,33 +8,37 @@ interface CheckInEvent {
   message?: string;
 }
 
-const ddbClient = new DynamoDBClient({});
-const TABLE_NAME = process.env.TABLE_NAME || 'user-check-ins';
+interface CheckInResponse {
+  statusCode: number;
+  body: string;
+}
 
-export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | CheckInEvent) => {
+const ddbClient = new DynamoDBClient({});
+
+export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | CheckInEvent): Promise<CheckInResponse> => {
   try {
     let userId: string;
-    let timestamp: string;
+    let timestamp: number;
     let message: string | undefined;
 
     if ('detail' in event) {
       // Handle EventBridge event
       const { detail } = event;
       userId = detail.userId || uuidv4();
-      timestamp = new Date(detail.timestamp || Date.now()).toISOString();
+      timestamp = detail.timestamp || Math.floor(Date.now() / 1000);
       message = detail.message;
     } else {
       // Handle direct invocation
       userId = event.userId || uuidv4();
-      timestamp = new Date(event.timestamp || Date.now()).toISOString();
+      timestamp = event.timestamp || Math.floor(Date.now() / 1000);
       message = event.message;
     }
 
     const params: PutItemCommandInput = {
-      TableName: TABLE_NAME,
+      TableName: process.env.TABLE_NAME || 'user-check-ins',
       Item: {
         user_id: { S: userId },
-        last_checkin_at: { S: timestamp },
+        last_checkin_at: { N: timestamp.toString() },
         ...(message && { message: { S: message } })
       }
     };
@@ -48,6 +52,7 @@ export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | Ch
         message: 'Check-in recorded successfully',
         userId,
         timestamp,
+        humanReadableTime: new Date(timestamp * 1000).toISOString(),
         ...(message && { message })
       })
     };
@@ -55,7 +60,10 @@ export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | Ch
     console.error('Error writing to DynamoDB:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to record check-in', error })
+      body: JSON.stringify({
+        message: 'Failed to record check-in',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     };
   }
 };

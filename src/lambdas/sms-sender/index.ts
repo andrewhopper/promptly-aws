@@ -1,10 +1,6 @@
-import { SNSClient, PublishCommand, PublishCommandInput } from '@aws-sdk/client-sns';
+import { Handler } from 'aws-lambda';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { EventBridgeEvent } from 'aws-lambda';
-
-interface SMSEvent {
-  phoneNumber: string;
-  message: string;
-}
 
 interface CheckInEvent {
   userId: string;
@@ -12,43 +8,47 @@ interface CheckInEvent {
   message?: string;
 }
 
-const snsClient = new SNSClient({});
+interface SMSEvent {
+  phoneNumber: string;
+  message: string;
+}
 
-export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | SMSEvent) => {
+const sns = new SNSClient({});
+
+export const handler: Handler = async (event: EventBridgeEvent<string, CheckInEvent> | SMSEvent) => {
   try {
-    let params: PublishCommandInput;
+    let phoneNumber: string;
+    let message: string;
 
     if ('detail' in event) {
       // Handle EventBridge event
       const { detail, 'detail-type': detailType } = event;
-      const message = detail.message ||
+      phoneNumber = process.env.TO_PHONE_NUMBER || '';
+      message = detail.message ||
         `User ${detail.userId} ${detailType === 'CheckInRequired' ? 'needs to check in' : 'has checked in'}`;
-
-      params = {
-        Message: message,
-        PhoneNumber: process.env.TO_PHONE_NUMBER,
-      };
     } else {
       // Handle direct invocation
-      const { phoneNumber, message } = event;
-      params = {
-        Message: message,
-        PhoneNumber: phoneNumber,
-      };
+      ({ phoneNumber, message } = event);
     }
 
-    const command = new PublishCommand(params);
-    await snsClient.send(command);
+    const command = new PublishCommand({
+      PhoneNumber: phoneNumber,
+      Message: message,
+    });
 
+    await sns.send(command);
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'SMS sent successfully' })
+      body: JSON.stringify({ message: 'SMS sent successfully' }),
     };
   } catch (error) {
     console.error('Error sending SMS:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to send SMS', error })
+      body: JSON.stringify({
+        message: 'Failed to send SMS',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }),
     };
   }
 };

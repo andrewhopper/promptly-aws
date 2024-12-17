@@ -1,11 +1,5 @@
 import { SESClient, SendEmailCommand, SendEmailCommandInput } from '@aws-sdk/client-ses';
-import { EventBridgeEvent } from 'aws-lambda';
-
-interface EmailEvent {
-  to: string;
-  subject: string;
-  body: string;
-}
+import { EventBridgeEvent, Handler } from 'aws-lambda';
 
 interface CheckInEvent {
   userId: string;
@@ -13,13 +7,20 @@ interface CheckInEvent {
   message?: string;
 }
 
-const sesClient = new SESClient({});
+interface EmailEvent {
+  to: string | string[];
+  subject: string;
+  body: string;
+}
 
-export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | EmailEvent) => {
+const ses = new SESClient({});
+
+export const handler: Handler = async (event: EventBridgeEvent<string, CheckInEvent> | EmailEvent) => {
   try {
     let params: SendEmailCommandInput;
 
     if ('detail' in event) {
+      // Handle EventBridge event
       const { detail, 'detail-type': detailType } = event;
       const subject = detailType === 'CheckInRequired'
         ? 'Time to Check In!'
@@ -35,28 +36,29 @@ export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | Em
           Body: {
             Text: { Data: message }
           },
-          Subject: { Data: subject },
+          Subject: { Data: subject }
         },
-        Source: process.env.FROM_EMAIL || 'noreply@example.com',
+        Source: process.env.FROM_EMAIL || 'noreply@example.com'
       };
     } else {
+      // Handle direct invocation
       const { to, subject, body } = event;
       params = {
         Destination: {
-          ToAddresses: [to]
+          ToAddresses: Array.isArray(to) ? to : [to]
         },
         Message: {
           Body: {
             Text: { Data: body }
           },
-          Subject: { Data: subject },
+          Subject: { Data: subject }
         },
-        Source: process.env.FROM_EMAIL || 'noreply@example.com',
+        Source: process.env.FROM_EMAIL || 'noreply@example.com'
       };
     }
 
     const command = new SendEmailCommand(params);
-    await sesClient.send(command);
+    await ses.send(command);
 
     return {
       statusCode: 200,
@@ -66,7 +68,10 @@ export const handler = async (event: EventBridgeEvent<string, CheckInEvent> | Em
     console.error('Error sending email:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to send email', error })
+      body: JSON.stringify({
+        message: 'Failed to send email',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     };
   }
 };
