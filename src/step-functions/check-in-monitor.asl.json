@@ -1,0 +1,86 @@
+{
+  "Comment": "A state machine that monitors user check-ins and triggers notifications when overdue",
+  "StartAt": "GetLastCheckIn",
+  "States": {
+    "GetLastCheckIn": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "${UserCheckInsTable}",
+        "Key": {
+          "user_id": {
+            "S.$": "$.userId"
+          }
+        }
+      },
+      "ResultPath": "$.checkInData",
+      "Next": "CalculateElapsedTime",
+      "Catch": [{
+        "ErrorEquals": ["States.ALL"],
+        "Next": "HandleError"
+      }]
+    },
+    "CalculateElapsedTime": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${TimeCalculatorFunction}",
+        "Payload": {
+          "lastCheckIn.$": "$.checkInData.Item.last_checkin_at.S",
+          "currentTime.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.timeCalculation",
+      "ResultSelector": {
+        "status.$": "$.Payload.status",
+        "elapsedTime.$": "$.Payload.elapsedTime",
+        "metadata.$": "$.Payload.metadata"
+      },
+      "Next": "CheckTimeForCheckin",
+      "Catch": [{
+        "ErrorEquals": ["States.ALL"],
+        "Next": "HandleError"
+      }]
+    },
+    "CheckTimeForCheckin": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.timeCalculation.status",
+          "StringEquals": "TIME_FOR_CHECKIN",
+          "Next": "PublishCheckinEvent"
+        }
+      ],
+      "Default": "Success"
+    },
+    "PublishCheckinEvent": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [{
+          "Detail": {
+            "type": "TIME_FOR_CHECKIN",
+            "userId.$": "$.userId",
+            "elapsedTime.$": "$.timeCalculation.elapsedTime",
+            "message.$": "$.timeCalculation.metadata.message",
+            "lastCheckIn.$": "$.timeCalculation.metadata.lastCheckInTime",
+            "currentTime.$": "$.timeCalculation.metadata.currentTime",
+            "thresholdSeconds.$": "$.timeCalculation.metadata.thresholdSeconds"
+          },
+          "DetailType": "TimeForCheckin",
+          "Source": "custom.checkin",
+          "EventBusName": "${EventBusName}"
+        }]
+      },
+      "Next": "Success"
+    },
+    "Success": {
+      "Type": "Succeed"
+    },
+    "HandleError": {
+      "Type": "Fail",
+      "Error": "CheckInMonitorError",
+      "Cause": "Error processing check-in data"
+    }
+  }
+}

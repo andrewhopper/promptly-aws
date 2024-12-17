@@ -2,6 +2,13 @@ import { Handler } from 'aws-lambda';
 import { App, LogLevel } from '@slack/bolt';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+import { EventBridgeEvent } from 'aws-lambda';
+
+interface CheckInEvent {
+  userId: string;
+  timestamp: number;
+  message?: string;
+}
 
 interface SlackMessage {
   channel: string;
@@ -67,20 +74,27 @@ async function initializeSlackApp() {
   }
 }
 
-export const handler: Handler = async (event: SlackMessage) => {
+export const handler: Handler = async (event: EventBridgeEvent<string, CheckInEvent> | SlackMessage) => {
   try {
-    const { channel, text, blocks, attachments, thread_ts, reply_broadcast } = event;
-
-    // Validate required fields
-    if (!channel) {
-      throw new Error('Channel is required');
-    }
-
-    if (!text && !blocks) {
-      throw new Error('Either text or blocks must be provided');
-    }
-
     const app = await initializeSlackApp();
+
+    let channel: string;
+    let text: string;
+    let blocks: any[] | undefined;
+    let attachments: any[] | undefined;
+    let thread_ts: string | undefined;
+    let reply_broadcast: boolean | undefined;
+
+    if ('detail' in event) {
+      // Handle EventBridge event
+      const { detail, 'detail-type': detailType } = event;
+      channel = process.env.SLACK_CHANNEL || 'general';
+      text = detail.message ||
+        `User ${detail.userId} ${detailType === 'CheckInRequired' ? 'needs to check in' : 'has checked in'}`;
+    } else {
+      // Handle direct invocation
+      ({ channel, text, blocks, attachments, thread_ts, reply_broadcast } = event);
+    }
 
     // Validate channel exists
     const isValidChannel = await validateChannel(app, channel);
