@@ -8,3 +8,4 @@ sessionLog: true
 streambus: true
 gates:
   - baseline
+hmode: true

@@ -122,11 +122,13 @@ spec:
         level: MUST
         scopes:
           - "**"
+        source: overwatch:hmode
         rule: "Start every reply with the hmode mode banner: a line of ═, then 'ENTERING <MODE> MODE', then a one-line description of the mode, then a line of ═. Pick the mode from the request: BUG FIX, NEW FEATURE, NEW PROTOTYPE, RESEARCH, REFACTOR, ENHANCEMENT, QUESTION, CHORE, MIGRATION, BROWNFIELD, HOTFIX, LOCAL DEV, or UNDETERMINED (then ask). Full rules are in protomcp: search_standards 'core:intent-detection'."
       - id: hmode:sdlc
         level: MUST
         scopes:
           - "**"
+        source: overwatch:hmode
         rule: "Follow the hmode 9-phase SDLC, stored in protomcp. Read .project for the current phase; with no .project, ask whether this is a new project. Load the phase's rules before acting: store_get knowledge process:phase-<n>-<name> and process:phase-transitions, and search_standards 'critical rules' (core:critical-rules). No implementation code before Phase 8 unless the work is brownfield (after Phase 0) or a declared spike."
       - id: overwatch:protomcp-first
         level: MUST

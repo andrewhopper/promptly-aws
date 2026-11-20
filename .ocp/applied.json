@@ -161,14 +161,8 @@
       "permissions": {
         "deny": [
           "Edit(.ocp/**)",
-          "Write(.ocp/**)",
-          "MultiEdit(.ocp/**)",
           "Edit(.claude/settings.json)",
-          "Write(.claude/settings.json)",
-          "MultiEdit(.claude/settings.json)",
-          "Edit(.claude/settings.local.json)",
-          "Write(.claude/settings.local.json)",
-          "MultiEdit(.claude/settings.local.json)"
+          "Edit(.claude/settings.local.json)"
         ]
       },
       "servers": [
