@@ -46,6 +46,27 @@ spec:
           tags:
             - claude-code
             - overwatch
+    - id: overwatch-session-prompt
+      on: prompt.submit
+      timeout: 30
+      mcp:
+        tool: mcp.protomcp.upsert_session
+        input:
+          id: cc-${session}
+          name: promptly-aws · claude-code session
+          description: Claude Code session in promptly-aws, logged by overwatch hooks.
+          namespace: promptly-aws
+          worktree: ${cwd}
+          harness: claude-code
+          harness_session_id: ${session}
+          session_log_path: ${transcript}
+          resume_command: claude --resume ${session}
+          context:
+            status: active
+            logged_by: overwatch
+          tags:
+            - claude-code
+            - overwatch
     - id: overwatch-session-turn
       on: agent.stop
       timeout: 30
@@ -161,27 +182,38 @@ spec:
             GID = "gate:aws-profile"
             cmd = sys.argv[1] if len(sys.argv) > 1 else ""
             cmd = re.sub(r"\\\n", " ", cmd)  # a backslash-newline continues the same command
-            if not re.search(r"(^|[;&|(]\s*|\s)aws\s", " " + cmd):
+            if not re.search(r"(^|[\s;&|(){}`'\"/])aws(\s|$)", cmd):
                 sys.exit(3)
+            WRAPPERS = {"env", "sudo", "command", "exec", "time", "nohup", "nice", "xargs", "builtin", "then", "do", "else", "!"}
+            SHELLS = {"bash", "sh", "zsh", "dash", "eval"}
             bad = []
-            for seg in re.split(r"&&|\|\||;|\||\n", cmd):  # each line is its own command
-                try:
-                    words = shlex.split(seg)
-                except ValueError:
-                    words = seg.split()
-                # strip leading VAR=value assignments
-                i = 0
-                env_profile = False
-                while i < len(words) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[i]):
-                    env_profile |= words[i].startswith("AWS_PROFILE=")
-                    i += 1
-                if i < len(words) and words[i] == "aws":
-                    rest = words[i + 1:]
-                    if rest[:1] in (["configure"], ["--version"], ["help"]):
+            def check(text, inherited=False):
+                # each line, pipeline stage, subshell and command substitution is its own command
+                for seg in re.split(r"&&|\|\||;|\||\n|\$\(|[(){}`]", text):
+                    try:
+                        words = shlex.split(seg)
+                    except ValueError:
+                        words = seg.split()
+                    env_profile = inherited
+                    i = 0
+                    # skip VAR=value assignments, wrappers (env, sudo, xargs ...) and their flags
+                    while i < len(words) and (re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[i]) or words[i] in WRAPPERS or (i > 0 and words[i].startswith("-"))):
+                        env_profile |= words[i].startswith("AWS_PROFILE=")
+                        i += 1
+                    if i < len(words) and (words[i] == "aws" or words[i].endswith("/aws")):
+                        rest = words[i + 1:]
+                        if rest[:1] in (["configure"], ["--version"], ["help"]):
+                            continue
+                        if env_profile or "--profile" in rest or any(w.startswith("--profile=") for w in rest):
+                            continue
+                        bad.append(seg.strip())
                         continue
-                    if env_profile or "--profile" in rest or any(w.startswith("--profile=") for w in rest):
-                        continue
-                    bad.append(seg.strip())
+                    # a quoted script handed to a shell (bash -c "aws ...") is checked as a command of its own
+                    if i < len(words) and words[i].rsplit("/", 1)[-1] in SHELLS:
+                        for w in words[i + 1:]:
+                            if re.search(r"\s", w):
+                                check(w, env_profile)
+            check(cmd)
             if bad:
                 for b in bad:
                     print(f"{GID}: `{b[:120]}` has no --profile; name the account explicitly (hmode 7.1)")
