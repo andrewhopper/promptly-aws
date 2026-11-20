@@ -1,0 +1,10 @@
+# overwatch.yml -- what `overwatch install` sets up in this repo; run it again after editing
+apiVersion: overwatch/v1
+namespace: promptly-aws
+protomcp:
+  launcher: ${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_aws.sh}
+model: inherit
+sessionLog: true
+streambus: true
+gates:
+  - baseline

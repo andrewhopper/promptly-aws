@@ -1,0 +1,227 @@
+# manifest.yml -- OCP context, written by overwatch install (edit overwatch.yml, then run it again)
+apiVersion: ocp/v1
+kind: Context
+metadata:
+  name: promptly-aws
+spec:
+  harness:
+    supported: [ claude-code ]
+    target: claude-code
+  agents:
+    - name: main
+      instructions: ./agents/main.md
+  models:
+    default: main
+    registry:
+      - alias: main
+        provider: anthropic
+        modelId: inherit
+  mcp:
+    servers:
+      - name: protomcp
+        transport: stdio
+        command: sh
+        args:
+          - -c
+          - exec "${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_aws.sh}"
+  hooks:
+    - id: overwatch-session-start
+      on: session.start
+      timeout: 30
+      mcp:
+        tool: mcp.protomcp.upsert_session
+        input:
+          id: cc-${session}
+          name: promptly-aws · claude-code session
+          description: Claude Code session in promptly-aws, logged by overwatch hooks.
+          namespace: promptly-aws
+          worktree: ${cwd}
+          harness: claude-code
+          harness_session_id: ${session}
+          session_log_path: ${transcript}
+          resume_command: claude --resume ${session}
+          context:
+            status: started
+            logged_by: overwatch
+          tags:
+            - claude-code
+            - overwatch
+    - id: overwatch-session-turn
+      on: agent.stop
+      timeout: 30
+      mcp:
+        tool: mcp.protomcp.upsert_session
+        input:
+          id: cc-${session}
+          name: promptly-aws · claude-code session
+          description: Claude Code session in promptly-aws, logged by overwatch hooks.
+          namespace: promptly-aws
+          worktree: ${cwd}
+          harness: claude-code
+          harness_session_id: ${session}
+          session_log_path: ${transcript}
+          resume_command: claude --resume ${session}
+          context:
+            status: active
+            logged_by: overwatch
+    - id: overwatch-session-end
+      on: session.end
+      timeout: 30
+      mcp:
+        tool: mcp.protomcp.upsert_session
+        input:
+          id: cc-${session}
+          name: promptly-aws · claude-code session
+          description: Claude Code session in promptly-aws, logged by overwatch hooks.
+          namespace: promptly-aws
+          worktree: ${cwd}
+          harness: claude-code
+          harness_session_id: ${session}
+          session_log_path: ${transcript}
+          resume_command: claude --resume ${session}
+          context:
+            status: ended
+            logged_by: overwatch
+          tags:
+            - claude-code
+            - overwatch
+            - archived
+    - id: overwatch-streambus-session-start
+      on: session.start
+      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      input: native
+      timeout: 5
+    - id: overwatch-streambus-prompt-submit
+      on: prompt.submit
+      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      input: native
+      timeout: 5
+    - id: overwatch-streambus-tool-pre
+      on: tool.pre
+      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      input: native
+      timeout: 5
+    - id: overwatch-streambus-tool-post
+      on: tool.post
+      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      input: native
+      timeout: 5
+    - id: overwatch-streambus-agent-stop
+      on: agent.stop
+      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      input: native
+      timeout: 5
+    - id: overwatch-streambus-session-end
+      on: session.end
+      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      input: native
+      timeout: 5
+  steering:
+    atoms:
+      - id: hmode:sdlc
+        level: MUST
+        scopes:
+          - "**"
+        rule: "Follow the hmode 9-phase SDLC, stored in protomcp. Read .project for the current phase; with no .project, ask whether this is a new project. Load the phase's rules before acting: store_get knowledge process:phase-<n>-<name> and process:phase-transitions, and search_standards 'critical rules' (core:critical-rules). No implementation code before Phase 8 unless the work is brownfield (after Phase 0) or a declared spike."
+      - id: overwatch:protomcp-first
+        level: MUST
+        scopes:
+          - "**"
+        rule: "Before deciding how to do something in this repo, look in protomcp for guidance: search_standards (kind: gate for executable gates), search_tastes, search_knowledge and search_skills. Follow what it returns over your own defaults, and say which record you followed."
+      - id: overwatch:protomcp-record
+        level: SHOULD
+        scopes:
+          - "**"
+        rule: "Record what lasts in protomcp, namespace promptly-aws: learnings, decisions and gotchas with upsert_knowledge, and tasks with upsert_issue (the user's exact words in context.verbatim)."
+      - id: overwatch:session-log
+        level: SHOULD
+        scopes:
+          - "**"
+        rule: "Hooks create, update and close this session's record in protomcp (id cc-<session id>). Before you finish, add your work log to it with upsert_session on the same id: keep its name and description, put work done, decisions and follow-ups in context.log, and set issue_id or project_id when you know them."
+      - id: gate:aws-profile
+        level: MUST
+        scopes:
+          - "**"
+        rule: Every aws CLI call names the account explicitly with --profile (or AWS_PROFILE=...); never rely on the default profile.
+        source: overwatch:gates/baseline
+        gate:
+          on: tool.pre
+          tools: ^Bash$
+          check: |-
+            python3 - {command} <<'PY'
+            """gate:aws-profile — every `aws` CLI call names a profile. argv: command. exit 0 pass, 1 fail, 3 n/a."""
+            import re, shlex, sys
+            GID = "gate:aws-profile"
+            cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+            cmd = re.sub(r"\\\n", " ", cmd)  # a backslash-newline continues the same command
+            if not re.search(r"(^|[;&|(]\s*|\s)aws\s", " " + cmd):
+                sys.exit(3)
+            bad = []
+            for seg in re.split(r"&&|\|\||;|\||\n", cmd):  # each line is its own command
+                try:
+                    words = shlex.split(seg)
+                except ValueError:
+                    words = seg.split()
+                # strip leading VAR=value assignments
+                i = 0
+                env_profile = False
+                while i < len(words) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[i]):
+                    env_profile |= words[i].startswith("AWS_PROFILE=")
+                    i += 1
+                if i < len(words) and words[i] == "aws":
+                    rest = words[i + 1:]
+                    if rest[:1] in (["configure"], ["--version"], ["help"]):
+                        continue
+                    if env_profile or "--profile" in rest or any(w.startswith("--profile=") for w in rest):
+                        continue
+                    bad.append(seg.strip())
+            if bad:
+                for b in bad:
+                    print(f"{GID}: `{b[:120]}` has no --profile; name the account explicitly (hmode 7.1)")
+                sys.exit(1)
+            sys.exit(0)
+            PY
+      - id: gate:secrets-in-writes
+        level: NEVER
+        scopes:
+          - "**"
+        rule: Never write a credential (AWS key, private key, GitHub/Anthropic/OpenAI/Slack token, hard-coded password) into a file; reference a declared secret instead.
+        source: overwatch:gates/baseline
+        gate:
+          on: tool.pre
+          tools: ^(Write|Edit|MultiEdit|NotebookEdit)$
+          check: |-
+            python3 - {content_path} <<'PY'
+            """gate:secrets-in-writes — block a write whose new content holds a credential. argv: content_path. exit 0 pass, 1 fail, 3 n/a."""
+            import re, sys
+            GID = "gate:secrets-in-writes"
+            P = [
+                (r"\bAKIA[0-9A-Z]{16}\b", "AWS access key id"),
+                (r"(?i)aws_secret_access_key\s*[=:]\s*['\"]?[A-Za-z0-9/+=]{40}", "AWS secret access key"),
+                (r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----", "private key"),
+                (r"\bgh[pousr]_[A-Za-z0-9]{36,}\b", "GitHub token"),
+                (r"\bsk-ant-[A-Za-z0-9_-]{20,}", "Anthropic API key"),
+                (r"\bsk-(?:proj-)?[A-Za-z0-9]{32,}\b", "OpenAI API key"),
+                (r"\bxox[abpr]-[A-Za-z0-9-]{10,}", "Slack token"),
+                (r"(?i)\b(?:password|passwd|secret|api[_-]?key|token)['\"]?\s*[=:]\s*['\"][^'\"\s$<{]{8,}['\"]", "hard-coded secret"),
+            ]
+            if len(sys.argv) < 2 or not sys.argv[1]:
+                sys.exit(3)
+            try:
+                text = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+            except OSError:
+                sys.exit(3)
+            hits = []
+            for i, line in enumerate(text.splitlines(), 1):
+                for pat, what in P:
+                    if re.search(pat, line):
+                        hits.append(f"{GID}: line {i}: {what} (store it as a secret reference, e.g. ${{secrets.NAME}} or ssm:/path)")
+                        break
+            if hits:
+                print("\n".join(hits[:10]))
+                sys.exit(1)
+            sys.exit(0)
+            PY
+    render:
+      - target: claude-md
+        path: ./CLAUDE.md

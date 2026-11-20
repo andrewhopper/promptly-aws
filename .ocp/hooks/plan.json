@@ -1,0 +1,93 @@
+{
+  "ocp": "hook-plan/v1",
+  "context": "promptly-aws",
+  "atoms": [],
+  "session": {
+    "atoms": [
+      {
+        "id": "hmode:sdlc",
+        "level": "MUST",
+        "scopes": [
+          "**"
+        ],
+        "rule": "Follow the hmode 9-phase SDLC, stored in protomcp. Read .project for the current phase; with no .project, ask whether this is a new project. Load the phase's rules before acting: store_get knowledge process:phase-<n>-<name> and process:phase-transitions, and search_standards 'critical rules' (core:critical-rules). No implementation code before Phase 8 unless the work is brownfield (after Phase 0) or a declared spike."
+      },
+      {
+        "id": "overwatch:protomcp-first",
+        "level": "MUST",
+        "scopes": [
+          "**"
+        ],
+        "rule": "Before deciding how to do something in this repo, look in protomcp for guidance: search_standards (kind: gate for executable gates), search_tastes, search_knowledge and search_skills. Follow what it returns over your own defaults, and say which record you followed."
+      },
+      {
+        "id": "overwatch:protomcp-record",
+        "level": "SHOULD",
+        "scopes": [
+          "**"
+        ],
+        "rule": "Record what lasts in protomcp, namespace promptly-aws: learnings, decisions and gotchas with upsert_knowledge, and tasks with upsert_issue (the user's exact words in context.verbatim)."
+      },
+      {
+        "id": "overwatch:session-log",
+        "level": "SHOULD",
+        "scopes": [
+          "**"
+        ],
+        "rule": "Hooks create, update and close this session's record in protomcp (id cc-<session id>). Before you finish, add your work log to it with upsert_session on the same id: keep its name and description, put work done, decisions and follow-ups in context.log, and set issue_id or project_id when you know them."
+      },
+      {
+        "id": "gate:aws-profile",
+        "level": "MUST",
+        "scopes": [
+          "**"
+        ],
+        "rule": "Every aws CLI call names the account explicitly with --profile (or AWS_PROFILE=...); never rely on the default profile.",
+        "gate": true
+      },
+      {
+        "id": "gate:secrets-in-writes",
+        "level": "NEVER",
+        "scopes": [
+          "**"
+        ],
+        "rule": "Never write a credential (AWS key, private key, GitHub/Anthropic/OpenAI/Slack token, hard-coded password) into a file; reference a declared secret instead.",
+        "gate": true
+      }
+    ]
+  },
+  "steps": {
+    "tool.pre": [
+      {
+        "kind": "gate",
+        "id": "gate:aws-profile",
+        "level": "MUST",
+        "blocking": true,
+        "scopes": [
+          "**"
+        ],
+        "tools": "^Bash$",
+        "check": "python3 - {command} <<'PY'\n\"\"\"gate:aws-profile — every `aws` CLI call names a profile. argv: command. exit 0 pass, 1 fail, 3 n/a.\"\"\"\nimport re, shlex, sys\nGID = \"gate:aws-profile\"\ncmd = sys.argv[1] if len(sys.argv) > 1 else \"\"\ncmd = re.sub(r\"\\\\\\n\", \" \", cmd)  # a backslash-newline continues the same command\nif not re.search(r\"(^|[;&|(]\\s*|\\s)aws\\s\", \" \" + cmd):\n    sys.exit(3)\nbad = []\nfor seg in re.split(r\"&&|\\|\\||;|\\||\\n\", cmd):  # each line is its own command\n    try:\n        words = shlex.split(seg)\n    except ValueError:\n        words = seg.split()\n    # strip leading VAR=value assignments\n    i = 0\n    env_profile = False\n    while i < len(words) and re.match(r\"^[A-Za-z_][A-Za-z0-9_]*=\", words[i]):\n        env_profile |= words[i].startswith(\"AWS_PROFILE=\")\n        i += 1\n    if i < len(words) and words[i] == \"aws\":\n        rest = words[i + 1:]\n        if rest[:1] in ([\"configure\"], [\"--version\"], [\"help\"]):\n            continue\n        if env_profile or \"--profile\" in rest or any(w.startswith(\"--profile=\") for w in rest):\n            continue\n        bad.append(seg.strip())\nif bad:\n    for b in bad:\n        print(f\"{GID}: `{b[:120]}` has no --profile; name the account explicitly (hmode 7.1)\")\n    sys.exit(1)\nsys.exit(0)\nPY"
+      },
+      {
+        "kind": "gate",
+        "id": "gate:secrets-in-writes",
+        "level": "NEVER",
+        "blocking": true,
+        "scopes": [
+          "**"
+        ],
+        "tools": "^(Write|Edit|MultiEdit|NotebookEdit)$",
+        "check": "python3 - {content_path} <<'PY'\n\"\"\"gate:secrets-in-writes — block a write whose new content holds a credential. argv: content_path. exit 0 pass, 1 fail, 3 n/a.\"\"\"\nimport re, sys\nGID = \"gate:secrets-in-writes\"\nP = [\n    (r\"\\bAKIA[0-9A-Z]{16}\\b\", \"AWS access key id\"),\n    (r\"(?i)aws_secret_access_key\\s*[=:]\\s*['\\\"]?[A-Za-z0-9/+=]{40}\", \"AWS secret access key\"),\n    (r\"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----\", \"private key\"),\n    (r\"\\bgh[pousr]_[A-Za-z0-9]{36,}\\b\", \"GitHub token\"),\n    (r\"\\bsk-ant-[A-Za-z0-9_-]{20,}\", \"Anthropic API key\"),\n    (r\"\\bsk-(?:proj-)?[A-Za-z0-9]{32,}\\b\", \"OpenAI API key\"),\n    (r\"\\bxox[abpr]-[A-Za-z0-9-]{10,}\", \"Slack token\"),\n    (r\"(?i)\\b(?:password|passwd|secret|api[_-]?key|token)['\\\"]?\\s*[=:]\\s*['\\\"][^'\\\"\\s$<{]{8,}['\\\"]\", \"hard-coded secret\"),\n]\nif len(sys.argv) < 2 or not sys.argv[1]:\n    sys.exit(3)\ntry:\n    text = open(sys.argv[1], encoding=\"utf-8\", errors=\"replace\").read()\nexcept OSError:\n    sys.exit(3)\nhits = []\nfor i, line in enumerate(text.splitlines(), 1):\n    for pat, what in P:\n        if re.search(pat, line):\n            hits.append(f\"{GID}: line {i}: {what} (store it as a secret reference, e.g. ${{secrets.NAME}} or ssm:/path)\")\n            break\nif hits:\n    print(\"\\n\".join(hits[:10]))\n    sys.exit(1)\nsys.exit(0)\nPY"
+      }
+    ],
+    "session.start": [
+      {
+        "kind": "hydrate"
+      }
+    ]
+  },
+  "deadline": {
+    "tool.pre": 20
+  }
+}

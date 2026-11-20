@@ -8,3 +8,8 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+.claude/events/
+.ocp/releases/
+.ocp/logs/
+.ocp/state.json
+.ocp/current
