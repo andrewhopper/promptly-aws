@@ -23,7 +23,7 @@ spec:
         command: sh
         args:
           - -c
-          - exec "${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_aws.sh}"
+          - exec "${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_agentcore.sh}"
   hooks:
     - id: overwatch-session-start
       on: session.start
@@ -88,32 +88,32 @@ spec:
             - archived
     - id: overwatch-streambus-session-start
       on: session.start
-      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      run: command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0
       input: native
       timeout: 5
     - id: overwatch-streambus-prompt-submit
       on: prompt.submit
-      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      run: command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0
       input: native
       timeout: 5
     - id: overwatch-streambus-tool-pre
       on: tool.pre
-      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      run: command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0
       input: native
       timeout: 5
     - id: overwatch-streambus-tool-post
       on: tool.post
-      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      run: command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0
       input: native
       timeout: 5
     - id: overwatch-streambus-agent-stop
       on: agent.stop
-      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      run: command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0
       input: native
       timeout: 5
     - id: overwatch-streambus-session-end
       on: session.end
-      run: command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0
+      run: command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0
       input: native
       timeout: 5
   steering:
@@ -225,3 +225,5 @@ spec:
     render:
       - target: claude-md
         path: ./CLAUDE.md
+  control:
+    estop: true

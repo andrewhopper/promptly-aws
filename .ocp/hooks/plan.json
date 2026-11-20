@@ -59,6 +59,9 @@
   "steps": {
     "tool.pre": [
       {
+        "kind": "estop"
+      },
+      {
         "kind": "gate",
         "id": "gate:aws-profile",
         "level": "MUST",
@@ -84,6 +87,11 @@
     "session.start": [
       {
         "kind": "hydrate"
+      }
+    ],
+    "prompt.submit": [
+      {
+        "kind": "estop"
       }
     ]
   },

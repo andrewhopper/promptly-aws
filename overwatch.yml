@@ -2,7 +2,7 @@
 apiVersion: overwatch/v1
 namespace: promptly-aws
 protomcp:
-  launcher: ${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_aws.sh}
+  launcher: ${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_agentcore.sh}
 model: inherit
 sessionLog: true
 streambus: true

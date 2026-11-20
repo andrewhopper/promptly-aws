@@ -8,7 +8,7 @@
           {
             "hooks": [
               {
-                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event tool.post --native -- 'command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0'",
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event tool.post --native -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
                 "timeout": 5,
                 "type": "command"
               }
@@ -19,7 +19,7 @@
           {
             "hooks": [
               {
-                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event tool.pre --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0'",
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event tool.pre --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
                 "timeout": 25,
                 "type": "command"
               }
@@ -60,7 +60,7 @@
           {
             "hooks": [
               {
-                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event session.end --native -- 'command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0'",
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event session.end --native -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
                 "timeout": 5,
                 "type": "command"
               }
@@ -100,7 +100,7 @@
           {
             "hooks": [
               {
-                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event session.start --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0'",
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event session.start --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
                 "timeout": 10,
                 "type": "command"
               }
@@ -136,7 +136,7 @@
           {
             "hooks": [
               {
-                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event agent.stop --native -- 'command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0'",
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event agent.stop --native -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
                 "timeout": 5,
                 "type": "command"
               }
@@ -147,8 +147,8 @@
           {
             "hooks": [
               {
-                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event prompt.submit --native -- 'command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook || exit 0'",
-                "timeout": 5,
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event prompt.submit --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
+                "timeout": 15,
                 "type": "command"
               }
             ]

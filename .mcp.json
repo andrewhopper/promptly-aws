@@ -4,7 +4,7 @@
       "command": "sh",
       "args": [
         "-c",
-        "exec \"${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_aws.sh}\""
+        "exec \"${PROTOMCP_LAUNCHER:-$HOME/dev/protomcp/scripts/proto-mcp_agentcore.sh}\""
       ]
     }
   }
