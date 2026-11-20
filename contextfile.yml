@@ -1,4 +1,4 @@
-# manifest.yml -- OCP context, written by overwatch install (edit overwatch.yml, then run it again)
+# contextfile.yml -- OCP context, written by overwatch install (edit overwatch.yml, then run it again)
 apiVersion: ocp/v1
 kind: Context
 metadata:
