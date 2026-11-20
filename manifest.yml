@@ -118,6 +118,11 @@ spec:
       timeout: 5
   steering:
     atoms:
+      - id: hmode:mode-banner
+        level: MUST
+        scopes:
+          - "**"
+        rule: "Start every reply with the hmode mode banner: a line of ═, then 'ENTERING <MODE> MODE', then a one-line description of the mode, then a line of ═. Pick the mode from the request: BUG FIX, NEW FEATURE, NEW PROTOTYPE, RESEARCH, REFACTOR, ENHANCEMENT, QUESTION, CHORE, MIGRATION, BROWNFIELD, HOTFIX, LOCAL DEV, or UNDETERMINED (then ask). Full rules are in protomcp: search_standards 'core:intent-detection'."
       - id: hmode:sdlc
         level: MUST
         scopes:
