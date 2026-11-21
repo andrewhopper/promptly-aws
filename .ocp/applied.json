@@ -1,0 +1,219 @@
+{
+  "apiVersion": "ocp/applied/v1",
+  "context": "promptly-aws",
+  "files": {
+    ".claude/settings.json": {
+      "hooks": {
+        "PostToolUse": [
+          {
+            "hooks": [
+              {
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event tool.post --native -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "PreToolUse": [
+          {
+            "hooks": [
+              {
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event tool.pre --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
+                "timeout": 25,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "SessionEnd": [
+          {
+            "hooks": [
+              {
+                "input": {
+                  "context": {
+                    "logged_by": "overwatch",
+                    "status": "ended"
+                  },
+                  "description": "Claude Code session in promptly-aws, logged by overwatch hooks.",
+                  "harness": "claude-code",
+                  "harness_session_id": "${session_id}",
+                  "id": "cc-${session_id}",
+                  "name": "promptly-aws · claude-code session",
+                  "namespace": "promptly-aws",
+                  "resume_command": "claude --resume ${session_id}",
+                  "session_log_path": "${transcript_path}",
+                  "tags": [
+                    "claude-code",
+                    "overwatch",
+                    "archived"
+                  ],
+                  "worktree": "${cwd}"
+                },
+                "server": "protomcp",
+                "timeout": 30,
+                "tool": "upsert_session",
+                "type": "mcp_tool"
+              }
+            ]
+          },
+          {
+            "hooks": [
+              {
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event session.end --native -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "SessionStart": [
+          {
+            "hooks": [
+              {
+                "input": {
+                  "context": {
+                    "logged_by": "overwatch",
+                    "status": "started"
+                  },
+                  "description": "Claude Code session in promptly-aws, logged by overwatch hooks.",
+                  "harness": "claude-code",
+                  "harness_session_id": "${session_id}",
+                  "id": "cc-${session_id}",
+                  "name": "promptly-aws · claude-code session",
+                  "namespace": "promptly-aws",
+                  "resume_command": "claude --resume ${session_id}",
+                  "session_log_path": "${transcript_path}",
+                  "tags": [
+                    "claude-code",
+                    "overwatch"
+                  ],
+                  "worktree": "${cwd}"
+                },
+                "server": "protomcp",
+                "timeout": 30,
+                "tool": "upsert_session",
+                "type": "mcp_tool"
+              }
+            ]
+          },
+          {
+            "hooks": [
+              {
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event session.start --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
+                "timeout": 10,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "input": {
+                  "context": {
+                    "logged_by": "overwatch",
+                    "status": "active"
+                  },
+                  "description": "Claude Code session in promptly-aws, logged by overwatch hooks.",
+                  "harness": "claude-code",
+                  "harness_session_id": "${session_id}",
+                  "id": "cc-${session_id}",
+                  "name": "promptly-aws · claude-code session",
+                  "namespace": "promptly-aws",
+                  "resume_command": "claude --resume ${session_id}",
+                  "session_log_path": "${transcript_path}",
+                  "worktree": "${cwd}"
+                },
+                "server": "protomcp",
+                "timeout": 30,
+                "tool": "upsert_session",
+                "type": "mcp_tool"
+              }
+            ]
+          },
+          {
+            "hooks": [
+              {
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event agent.stop --native -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "UserPromptSubmit": [
+          {
+            "hooks": [
+              {
+                "input": {
+                  "context": {
+                    "logged_by": "overwatch",
+                    "status": "active"
+                  },
+                  "description": "Claude Code session in promptly-aws, logged by overwatch hooks.",
+                  "harness": "claude-code",
+                  "harness_session_id": "${session_id}",
+                  "id": "cc-${session_id}",
+                  "name": "promptly-aws · claude-code session",
+                  "namespace": "promptly-aws",
+                  "resume_command": "claude --resume ${session_id}",
+                  "session_log_path": "${transcript_path}",
+                  "tags": [
+                    "claude-code",
+                    "overwatch"
+                  ],
+                  "worktree": "${cwd}"
+                },
+                "server": "protomcp",
+                "timeout": 30,
+                "tool": "upsert_session",
+                "type": "mcp_tool"
+              }
+            ]
+          },
+          {
+            "hooks": [
+              {
+                "command": "node \"$CLAUDE_PROJECT_DIR/.ocp/bin/hook-shim.mjs\" --context 'promptly-aws' --event prompt.submit --native --plan \"$CLAUDE_PROJECT_DIR/.ocp/hooks/plan.json\" -- 'command -v ow-broker-hook >/dev/null 2>&1 && exec ow-broker-hook; command -v streambus-hook >/dev/null 2>&1 && exec streambus-hook; exit 0'",
+                "timeout": 15,
+                "type": "command"
+              }
+            ]
+          }
+        ]
+      },
+      "keys": [
+        "$schema"
+      ],
+      "permissions": {
+        "deny": [
+          "Edit(.ocp/**)",
+          "Edit(.claude/settings.json)",
+          "Edit(.claude/settings.local.json)"
+        ]
+      },
+      "servers": [
+        "protomcp"
+      ]
+    },
+    ".mcp.json": {
+      "servers": [
+        "protomcp"
+      ]
+    },
+    ".ocp/bin/assemble.mjs": {
+      "whole": true
+    },
+    ".ocp/bin/hook-shim.mjs": {
+      "whole": true
+    },
+    ".ocp/hooks/plan.json": {
+      "whole": true
+    },
+    "CLAUDE.md": {
+      "whole": true
+    }
+  }
+}
